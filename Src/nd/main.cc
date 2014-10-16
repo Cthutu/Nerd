@@ -1,0 +1,407 @@
+//----------------------------------------------------------------------------------------------------
+// Nerd shell
+//
+// Provides a RCEPL (Read-Compile-Evaluate-Print-Loop) environment
+//----------------------------------------------------------------------------------------------------
+
+#include <nerd-int.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
+
+#define NE_TEST			0
+
+#if NE_TEST
+void TestMain();
+#endif
+
+static void Output(Nerd N, const char* text)
+{
+#ifdef _WIN32
+    OutputDebugStringA(text);
+#endif
+    fprintf(stdout, "%s", text);
+}
+
+//----------------------------------------------------------------------------------------------------
+// Running a single file
+//----------------------------------------------------------------------------------------------------
+
+static NeBool RunFile(Nerd T, const char* fileName)
+{
+    FILE* f;
+    size_t length = 0;
+    char* code = 0;
+
+    f = fopen(fileName, "rb");
+    if (f)
+    {
+        if (!fseek(f, 0, SEEK_END)) {
+            length = ftell(f);
+            fseek(f, 0, SEEK_SET);
+        }
+
+        code = (char *)malloc(length + 1);
+        fread(code, length, 1, f);
+        fclose(f);
+        code[length] = 0;
+
+        if (!NeRun(T, fileName, code, length + 1))
+        {
+            NeOut(T, "ERROR: %s\n\n", NePopString(T));
+            return NE_NO;
+        }
+
+        if (!NeToString(T, -1, NE_CONVERT_MODE_REPL))
+        {
+            NeOut(T, "ERROR: Unable to output result!\n");
+        }
+        else
+        {
+            NeOut(T, "==> %s\n", NePopString(T));
+        }
+    }
+    else
+    {
+        NeOut(T, "Unable to open %s.", fileName);
+    }
+
+    NeGarbageCollect(T);
+
+    return NE_YES;
+}
+
+//----------------------------------------------------------------------------------------------------
+// Command line analysis
+//----------------------------------------------------------------------------------------------------
+
+void RunCommandLine(int argc, char** argv, Nerd T)
+{
+    int i = 0;
+
+    for (i = 1; i < argc; ++i)
+    {
+        char* command = argv[i];
+
+        RunFile(T, command);
+    }
+}
+
+//----------------------------------------------------------------------------------------------------
+// GetLine implementation for Win32
+//----------------------------------------------------------------------------------------------------
+
+#ifdef WIN32
+
+#include <limits.h>
+#include <stdlib.h>
+#include <errno.h>
+
+#ifndef SIZE_MAX
+# define SIZE_MAX ((size_t) -1)
+#endif
+#ifndef SSIZE_MAX
+# define SSIZE_MAX ((ssize_t) (SIZE_MAX / 2))
+#endif
+#if !HAVE_FLOCKFILE
+# undef flockfile
+# define flockfile(x) ((void) 0)
+#endif
+#if !HAVE_FUNLOCKFILE
+# undef funlockfile
+# define funlockfile(x) ((void) 0)
+#endif
+
+typedef size_t ssize_t;
+
+ssize_t getdelim(char **lineptr, size_t *n, int delimiter, FILE *fp)
+{
+    ssize_t result;
+    size_t cur_len = 0;
+
+    if (lineptr == NULL || n == NULL || fp == NULL)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    flockfile(fp);
+
+    if (*lineptr == NULL || *n == 0)
+    {
+        *n = 120;
+        *lineptr = (char *)malloc(*n);
+        if (*lineptr == NULL)
+        {
+            result = -1;
+            goto unlock_return;
+        }
+    }
+
+    for (;;)
+    {
+        int i;
+
+        i = getc(fp);
+        if (i == EOF)
+        {
+            result = -1;
+            break;
+        }
+
+        /* Make enough space for len+1 (for final NUL) bytes.  */
+        if (cur_len + 1 >= *n)
+        {
+            size_t needed_max =
+                SSIZE_MAX < SIZE_MAX ? (size_t)SSIZE_MAX + 1 : SIZE_MAX;
+            size_t needed = 2 * *n + 1;   /* Be generous. */
+            char *new_lineptr;
+
+            if (needed_max < needed)
+                needed = needed_max;
+            if (cur_len + 1 >= needed)
+            {
+                result = -1;
+                goto unlock_return;
+            }
+
+            new_lineptr = (char *)realloc(*lineptr, needed);
+            if (new_lineptr == NULL)
+            {
+                result = -1;
+                goto unlock_return;
+            }
+
+            *lineptr = new_lineptr;
+            *n = needed;
+        }
+
+        (*lineptr)[cur_len] = i;
+        cur_len++;
+
+        if (i == delimiter)
+            break;
+    }
+    (*lineptr)[cur_len] = '\0';
+    result = cur_len ? cur_len : result;
+
+unlock_return:
+    funlockfile(fp);
+    return result;
+}
+
+ssize_t getline(char **lineptr, size_t *n, FILE *stream)
+{
+    return getdelim(lineptr, n, '\n', stream);
+}
+
+#endif
+
+//----------------------------------------------------------------------------------------------------
+// Creating a session
+//----------------------------------------------------------------------------------------------------
+
+static Nerd CreateSession(int argc, const char** argv, NeBool* interactive)
+{
+    NeConfig config;
+
+    // Create the Nerd virtual machine
+    NeSetConfigToDefault(&config);
+    config.mCallbacks.mOutputCallback = &Output;
+
+    Nerd T = NeOpen(&config);
+    *interactive = NE_NO;
+
+    if (T)
+    {
+        // Load in the buffers and read them
+        int i = 0;
+        NeBool success = NE_YES;
+
+        for (i = 1; i < argc; ++i)
+        {
+            const char* param = argv[i];
+
+            if (*param == '-')
+            {
+                // Check the flags
+                while (*++param)
+                {
+                    switch (*param)
+                    {
+                    case 'i':	*interactive = NE_YES; break;
+                    case 'e':
+                        {
+                            // Execute code
+                            ++i;
+                            if (i < argc)
+                            {
+                                if (NeRun(T, "<cmdline>", argv[i], -1))
+                                {
+                                    // Execution was successful
+                                    NeToString(T, -1, NE_CONVERT_MODE_REPL);
+                                    fprintf(stdout, "==> %s\n", NePopString(T));
+                                }
+                                else
+                                {
+                                    // Error occurred!
+                                    fprintf(stderr, "ERROR: %s\n", NePopString(T));
+                                }
+                            }
+                            else
+                            {
+                                fprintf(stderr, "ERROR: No code provided on command line for execution.");
+                            }
+                        }
+                    }
+                }
+            }
+            else if (success && *param == '@')
+            {
+                // Manifest list
+                const char* manifestFileName = param + 1;
+                char fileName[1024] = { 0 };
+                size_t lengthPrefix = 0;
+                FILE* file;
+
+                strncpy(fileName, manifestFileName, 1023);
+                lengthPrefix = strlen(fileName);
+                while (lengthPrefix &&
+                    fileName[lengthPrefix - 1] != '/' &&
+                    fileName[lengthPrefix - 1] != '\\')
+                {
+                    --lengthPrefix;
+                }
+                fileName[lengthPrefix] = 0;
+
+                file = fopen(manifestFileName, "rt");
+                if (file)
+                {
+                    char* readline = 0;
+                    size_t readlineLen = 0;
+
+                    while ((readlineLen = getline(&readline, &readlineLen, file)) > 0)
+                    {
+                        if (-1 == (int)readlineLen)
+                        {
+                            free(readline);
+                            break;
+                        }
+
+                        if (readline[0] == '#') continue;
+
+                        // Read a file name from the manifest file
+                        if (readline[readlineLen - 1] == '\n')
+                        {
+                            --readlineLen;
+                            readline[readlineLen] = 0;
+                            if (0 == readlineLen)
+                            {
+                                free(readline);
+                                break;
+                            }
+                        }
+
+                        strncpy(fileName + lengthPrefix, readline, 1023 - lengthPrefix);
+                        free(readline);
+                        readline = 0;
+
+                        // We have the filename of the script to read in.
+                        success = RunFile(T, fileName);
+                        if (!success) break;
+                    }
+
+                    fclose(file);
+                }
+                else
+                {
+                    fprintf(stderr, "ERROR: Cannot open manifest file '%s'.\n", manifestFileName);
+                }
+            }
+            else if (success)
+            {
+                success = RunFile(T, param);
+            }
+        }
+    }
+
+    return T;
+}
+
+//----------------------------------------------------------------------------------------------------
+// Main entry point
+//----------------------------------------------------------------------------------------------------
+
+int main(int argc, const char** argv)
+{
+    Nerd N;
+    NeBool interactive = NE_NO;
+
+    // Initialise the session
+    N = CreateSession(argc, argv, &interactive);
+    if (argc == 1) interactive = NE_YES;
+
+    // The main loop
+    if (N)
+    {
+#if NE_TEST
+        TestMain();
+#endif
+
+        if (interactive)
+        {
+            fprintf(stdout, "Nerd Shell (V" NE_VERSION_STRING ")\n");
+            fprintf(stdout, NE_COPYRIGHT_STRING "\n\n");
+            fprintf(stdout, "Type CTRL-C to quit.\n\n");
+
+            for (;;)
+            {
+                char* input;
+                size_t size = 0;
+                char* nspace = 0;
+                ssize_t result = 0;
+
+                fprintf(stdout, "%s> ", nspace ? nspace : "/");
+
+                result = getline(&input, &size, stdin);
+                if (-1 == result)
+                {
+                    break;
+                }
+
+                if (size)
+                {
+                    if (!NeRun(N, "<stdin>", input, size))
+                    {
+                        // Error occurred.
+                        fprintf(stderr, "ERROR: %s\n", NePopString(N));
+                    }
+                    else
+                    {
+                        // Result!
+                        if (NeToString(N, -1, NE_CONVERT_MODE_REPL))
+                        {
+                            fprintf(stdout, "==> %s\n", NePopString(N));
+                        }
+                        else
+                        {
+                            fprintf(stderr, "ERROR: Out of memory!\n");
+                        }
+                    }
+                }
+
+                NeGarbageCollect(N);
+            }
+        }
+
+        NeClose(N);
+    }
+
+    printf("\nEND\n");
+    return 0;
+}
