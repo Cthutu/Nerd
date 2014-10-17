@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------
 // Nerd shell
 //
-// Provides a RCEPL (Read-Compile-Evaluate-Print-Loop) environment
+// Provides a REPL (Read-Evaluate-Print-Loop) environment
 //----------------------------------------------------------------------------------------------------
 
 #include <nerd-int.h>

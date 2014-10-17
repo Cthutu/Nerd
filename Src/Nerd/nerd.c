@@ -4282,6 +4282,19 @@ static NeBool Assign(Nerd N, NeValue symbol, NeValue value, NeTableRef environme
     }
     else
     {
+#if NE_DEBUG_TRACE_EVAL
+        {
+            char* varDesc = AllocDescription(N, symbol);
+            char* valDesc = AllocDescription(N, value);
+
+            NeOut(N, "ASSIGN [");
+            if (environment == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", environment);
+            NeOut(N, "] %s = %s\n", varDesc, valDesc);
+
+            FreeDescription(N, varDesc);
+            FreeDescription(N, valDesc);
+        }
+#endif
         slot = NewTableSlot(N, environment, symbol);
         if (!slot) return NeOutOfMemory(N);
         *slot = value;
@@ -4305,17 +4318,28 @@ NeValue GetFunctionBody(NeValue func)
     return NE_TAIL(NE_HEAD(func));
 }
 
-static NeBool ExtendEnvironment(Nerd N, NeValue baseEnv, NeValue argNames, NeValue argValues, NE_OUT NeValueRef newEnv)
+static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, NeValue argNames, NeValue argValues, NE_OUT NeValueRef execEnv)
 {
     NeTableRef env;
-    NeTableRef baseEnvTable = NE_CAST(baseEnv, NeTable);
-    *newEnv = NeCloneTable(N, baseEnv);
-    env = NE_CAST(*newEnv, NeTable);
+    NeTableRef funcEnvTable = NE_CAST(funcEnv, NeTable);
+    *execEnv = NeCloneTable(N, funcEnv);
+    env = NE_CAST(*execEnv, NeTable);
 
+#if NE_DEBUG_TRACE_EVAL
+    {
+        NeOut(N, "ASSIGN [");
+        if (callerEnv == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", callerEnv);
+        NeOut(N, "] --> [");
+        if (env == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", env);
+        NeOut(N, " <-- ");
+        if (funcEnvTable == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", funcEnvTable);
+        NeOut(N, "]\n");
+    }
+#endif
     while (argNames && argValues)
     {
         NeValue result = 0;
-        if (!Evaluate(N, NE_HEAD(argValues), baseEnvTable, &result)) return NE_NO;
+        if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
         if (!Assign(N, NE_HEAD(argNames), result, env)) return NE_NO;
         argNames = NE_TAIL(argNames);
         argValues = NE_TAIL(argValues);
@@ -4345,7 +4369,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
             NeValue execEnv = 0;
 
             // Set up the function environment.
-            if (!ExtendEnvironment(N, funcEnv, funcArgs, args, &execEnv)) return NE_NO;
+            if (!ExtendEnvironment(N, environment, funcEnv, funcArgs, args, &execEnv)) return NE_NO;
 
             // Execute the function.
             return EvaluateList(N, funcBody, NE_CAST(execEnv, NeTable), result);
@@ -4429,6 +4453,7 @@ static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OU
            // Evaluate the value
            success = Evaluate(N, value, environment, &value) &&
                Assign(N, key, value, environment) ? NE_YES : NE_NO;
+           if (success) *result = value;
            break;
         }
 
