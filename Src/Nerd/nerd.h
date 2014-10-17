@@ -24,12 +24,12 @@ extern "C" {
 #define NE_STR(str)				NE_STRINGISE(str)
 
 #define NE_MAJOR_VERSION		0
-#define NE_MINOR_VERSION		0
+#define NE_MINOR_VERSION		1
 #define NE_BUILD_VERSION		0
 
 #define NE_VERSION_STRING NE_STR(NE_MAJOR_VERSION) "." NE_STR(NE_MINOR_VERSION) "." NE_STR(NE_BUILD_VERSION)
 
-#define NE_COPYRIGHT_STRING		"Copyright (C)2012-2013 Matt Davies, all rights reserved."
+#define NE_COPYRIGHT_STRING		"Copyright (C)2012-2014 Matt Davies, all rights reserved."
 
 //----------------------------------------------------------------------------------------------------
 // Basic types and definitions
