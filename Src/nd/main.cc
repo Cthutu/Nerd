@@ -14,6 +14,7 @@
 #include <Windows.h>
 #endif
 
+// Enables the unit testing if set to 1
 #define NE_TEST			0
 
 #if NE_TEST

@@ -82,4 +82,4 @@ Function.FuncNotDefined	x:(fn () (y)) y:(fn () 42) (x)								42
 #
 Globals.Basic			x:42 x														42
 Globals.Defined1		x:3 x:4														FAIL
-Globals.Defined2		x:(fn () a:4 a:3)											FAIL
+Globals.Defined2		x:(fn () a:4 a:3) (x)										FAIL

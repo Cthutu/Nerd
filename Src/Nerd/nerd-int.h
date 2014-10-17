@@ -427,6 +427,14 @@ NeValue NeMultiplyNumbers(Nerd N, NeValue a, NeValue b);
 NeValue NeDivideNumbers(Nerd N, NeValue a, NeValue b);
 
 //----------------------------------------------------------------------------------------------------
+// Function management
+//----------------------------------------------------------------------------------------------------
+
+// Create a closure with the given arguments, body and environment.
+//
+NeValue NeCreateClosure(Nerd N, NeValue args, NeValue body, NeValue environment);
+
+//----------------------------------------------------------------------------------------------------
 // Evaluation
 //----------------------------------------------------------------------------------------------------
 

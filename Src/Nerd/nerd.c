@@ -21,6 +21,7 @@
 //  KEYVALUE        Key/value management
 //  SYMBOL          Symbol management
 //  NUMBER          Number management
+//  FUNCTION        Function management
 //  STACK           User stack management
 //  OUTPUT          Output
 //  ERROR           Error handling
@@ -40,6 +41,17 @@
 #include <string.h>
 
 //----------------------------------------------------------------------------------------------------
+// Debug flags
+//----------------------------------------------------------------------------------------------------
+
+#define NE_DEBUG_MEMORY                 1       // Detect memory leaks and store information per allocation
+#define NE_DEBUG_LOG_MEMORY             0       // Log memory operations to memory-log.txt
+#define NE_DEBUG_CHECK_MEMORY           0       // Check state of memory on every operation
+#define NE_DEBUG_GC                     0       // Garbage collection
+#define NE_DEBUG_TRACE_EVAL             0       // Trace evaluation
+#define NE_DEBUG_TO_FILE                0       // Output to "nerd-debug.log" all output
+
+//----------------------------------------------------------------------------------------------------
 // System definition
 //----------------------------------------------------------------------------------------------------
 
@@ -54,17 +66,6 @@
 #if defined(_DEBUG)
 #   define NE_DEBUG
 #endif
-
-//----------------------------------------------------------------------------------------------------
-// Debug flags
-//----------------------------------------------------------------------------------------------------
-
-#define NE_DEBUG_MEMORY                 1       // Detect memory leaks and store information per allocation
-#define NE_DEBUG_LOG_MEMORY             0       // Log memory operations to memory-log.txt
-#define NE_DEBUG_CHECK_MEMORY           0       // Check state of memory on every operation
-#define NE_DEBUG_GC                     0       // Garbage collection
-#define NE_DEBUG_TRACE_EVAL             0       // Trace evaluation
-#define NE_DEBUG_TO_FILE                0       // Output to "nerd-debug.log" all output
 
 //----------------------------------------------------------------------------------------------------
 // Constants
@@ -351,7 +352,8 @@ static NeBool AppendItem(Nerd N, NE_IN_OUT NeValue* rootRef, NE_IN_OUT NeValue* 
 NeBool NeCheckArgType(Nerd N, NeValue arg, NeUInt index, NeType expectedArgType)
 {
     NeType argType = NeGetType(arg);
-    if (argType != expectedArgType)
+    if ((argType != expectedArgType) &&
+        !((expectedArgType == NeType_List) && (argType == NeType_Nil)))
     {
         return NeError(N, "Argument %u should be of type '%s', but found type '%s'.",
             index,
@@ -2897,6 +2899,36 @@ static NeValue NeModNumbers(Nerd N, NeValue a, NeValue b)
     return NeSetNumber(N, 0, &result);
 }
 
+//----------------------------------------------------------------------------------------------------{FUNCTION}
+//----------------------------------------------------------------------------------------------------
+//  F U N C T I O N   M A N A G E M E N T
+//----------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
+
+NeValue NeCreateClosure(Nerd N, NeValue args, NeValue body, NeValue environment)
+{
+    // A function will be of the form:
+    //
+    //      ((args . body) . environment)
+    //
+    NeValue argsBodyCell = 0;
+    NeValue funcCell = 0;
+    
+    if (!(argsBodyCell = NeCreateCons(N, args, body)))
+    {
+        NeOutOfMemory(N);
+        return 0;
+    }
+
+    if (!(funcCell = NeCreateCons(N, argsBodyCell, environment)))
+    {
+        NeOutOfMemory(N);
+        return 0;
+    }
+
+    return NE_BOX(funcCell, NE_PT_FUNCTION);
+}
+
 //----------------------------------------------------------------------------------------------------{STACK}
 //----------------------------------------------------------------------------------------------------
 //	U S E R   S T A C K   M A N A G E M E N T
@@ -4231,6 +4263,9 @@ static NeBool Read(Nerd N, const char* source, const char* str, NeUInt size, NE_
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
+static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OUT NeValueRef result);
+static NeBool EvaluateList(Nerd N, NeValue codeList, NeTableRef environment, NE_OUT NeValueRef result);
+
 static NeBool Assign(Nerd N, NeValue symbol, NeValue value, NeTableRef environment)
 {
     NeValueRef slot = 0;
@@ -4239,7 +4274,7 @@ static NeBool Assign(Nerd N, NeValue symbol, NeValue value, NeTableRef environme
     if (!NE_IS_SYMBOL(symbol)) return NeError(N, "Attempted assignment to a non-symbol.");
 
     // Handle the assignment
-    slot = GetTableSlot(environment, symbol, NE_YES);
+    slot = GetTableSlot(environment, symbol, NE_NO);
     if (slot)
     {
         // Symbol is already defined.  Cannot redefine symbol.
@@ -4255,10 +4290,68 @@ static NeBool Assign(Nerd N, NeValue symbol, NeValue value, NeTableRef environme
     return NE_YES;
 }
 
+NeValue GetFunctionEnv(NeValue func, NeValue env)
+{
+    return NE_TAIL(func) ? NE_TAIL(func) : env;
+}
+
+NeValue GetFunctionArgs(NeValue func)
+{
+    return NE_HEAD(NE_HEAD(func));
+}
+
+NeValue GetFunctionBody(NeValue func)
+{
+    return NE_TAIL(NE_HEAD(func));
+}
+
+static NeBool ExtendEnvironment(Nerd N, NeValue baseEnv, NeValue argNames, NeValue argValues, NE_OUT NeValueRef newEnv)
+{
+    NeTableRef env;
+    NeTableRef baseEnvTable = NE_CAST(baseEnv, NeTable);
+    *newEnv = NeCloneTable(N, baseEnv);
+    env = NE_CAST(*newEnv, NeTable);
+
+    while (argNames && argValues)
+    {
+        NeValue result = 0;
+        if (!Evaluate(N, NE_HEAD(argValues), baseEnvTable, &result)) return NE_NO;
+        if (!Assign(N, NE_HEAD(argNames), result, env)) return NE_NO;
+        argNames = NE_TAIL(argNames);
+        argValues = NE_TAIL(argValues);
+    }
+
+    if (argNames)
+    {
+        return NeError(N, "Not enough arguments given to function.");
+    }
+    if (argValues)
+    {
+        return NeError(N, "Too many arguments given to function.");
+    }
+
+    return NE_YES;
+}
+
 static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, NE_OUT NeValueRef result)
 {
     switch (NE_TYPEOF(func))
     {
+    case NE_PT_FUNCTION:
+        {
+            NeValue funcEnv = GetFunctionEnv(func, NE_BOX(environment, NE_PT_TABLE));
+            NeValue funcArgs = GetFunctionArgs(func);
+            NeValue funcBody = GetFunctionBody(func);
+            NeValue execEnv = 0;
+
+            // Set up the function environment.
+            if (!ExtendEnvironment(N, funcEnv, funcArgs, args, &execEnv)) return NE_NO;
+
+            // Execute the function.
+            return EvaluateList(N, funcBody, NE_CAST(execEnv, NeTable), result);
+        }
+        break;
+
     case NE_PT_EXTENDED:
         switch (NE_EXTENDED_TYPEOF(func))
         {
@@ -4630,6 +4723,39 @@ static NeBool N_Mod(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     return NE_YES;
 }
 
+static NeBool N_Fn(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue body;
+    NeValue scan;
+    NeUInt index = 1;
+    NeValue func;
+
+    // Get body of function
+    NE_NEED_NUM_ARGS(N, args, 2);
+    body = NE_TAIL(args);
+
+    // Get arguments of function and check them
+    args = NE_HEAD(args);
+    NE_CHECK_ARG_TYPE(N, args, 1, NeType_List);
+
+    for (scan = args; scan; scan = NE_TAIL(scan), ++index)
+    {
+        NeValue arg = NE_HEAD(scan);
+        if (!NE_IS_SYMBOL(arg))
+        {
+            return NeError(N, "Arguments declaration in lambda is invalid.  Argument %u must be a symbol.", index);
+        }
+    }
+
+    func = NeCreateClosure(N, args, body, env);
+    if (func)
+    {
+        *result = func;
+    }
+
+    return func ? NE_YES : NE_NO;
+}
+
 NeBool RegisterCoreNatives(Nerd N)
 {
     NeNativeInfo info[] = {
@@ -4638,6 +4764,7 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("*", N_Multiply)
         NE_NATIVE("/", N_Divide)
         NE_NATIVE("%", N_Mod)
+        NE_NATIVE("fn", N_Fn)
         NE_END_NATIVES
     };
 
