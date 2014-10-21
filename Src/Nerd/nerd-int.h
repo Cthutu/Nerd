@@ -63,7 +63,7 @@ extern "C"
 //  0001    1       Key/Value		L		Points to a NeCell structure.
 //  0010    2       Function		N		Is of form ((Block args) body ...)
 //  0011    3       ?
-//  0100    4       ?
+//  0100    4       Sequence        L       Points to a NeCell structure.
 //  0101    5       ?
 //  0110    6       ?
 //  0111    7       ?
@@ -155,7 +155,7 @@ NeType;
 #define NE_PT_CELL			0
 #define NE_PT_KEYVALUE      1
 #define NE_PT_FUNCTION		2
-#define NE_PT_NATIVE        3
+#define NE_PT_SEQUENCE      4
 #define NE_PT_TABLE			8
 #define NE_PT_SYMBOL        9
 #define NE_PT_STRING		10
@@ -177,6 +177,7 @@ NeType;
 #define NE_IS_CELL(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_CELL)
 #define NE_IS_KEYVALUE(v)               NE_IS_PRIMARY_TYPE((v), NE_PT_KEYVALUE)
 #define NE_IS_FUNCTION(v)				NE_IS_PRIMARY_TYPE((v), NE_PT_FUNCTION)
+#define NE_IS_SEQUENCE(v)               NE_IS_PRIMARY_TYPE((v), NE_PT_SEQUENCE)
 #define NE_IS_TABLE(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_TABLE)
 #define NE_IS_SYMBOL(v)                 NE_IS_PRIMARY_TYPE((v), NE_PT_SYMBOL)
 #define NE_IS_STRING(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_STRING)

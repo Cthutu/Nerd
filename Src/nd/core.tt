@@ -89,3 +89,11 @@ Globals.Defined2		x:(fn () a:4 a:3) (x)										FAIL
 #
 Closure.Simple			addn:(fn (n) (fn (x) (+ x n))) ((addn 5) 10)				15
 Closure.Simple2			addn:(fn (n) (fn (x) (+ x n))) aa:(fn (x) a5:(addn 5) (a5 x)) (aa 10)	15
+
+#
+# Sequences
+#
+Seq.Simple2				{ 1 2 3 }													3
+Seq.LocalVar			{ a: 42 a }													42
+Seq.LocalVars			a:3 { a: 4 a }												4
+Seq.LocalVars2			a:3 { a: 4 } a												3

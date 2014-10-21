@@ -3372,6 +3372,8 @@ typedef enum _NeToken
     NeToken_CloseList,          // )
     NeToken_OpenTable,          // [
     NeToken_CloseTable,         // ]
+    NeToken_OpenSeq,            // {
+    NeToken_CloseSeq,           // }
 
     // Keywords
     NeToken_KEYWORDS,
@@ -4040,6 +4042,8 @@ static NeToken NextToken(NeLexRef L)
     else if (')' == c)      NE_LEX_RETURN(NeToken_CloseList);
     else if ('[' == c)      NE_LEX_RETURN(NeToken_OpenTable);
     else if (']' == c)      NE_LEX_RETURN(NeToken_CloseTable);
+    else if ('{' == c)      NE_LEX_RETURN(NeToken_OpenSeq);
+    else if ('}' == c)      NE_LEX_RETURN(NeToken_CloseSeq);
 
     //----------------------------------------------------------------------------------------------------
     // If we've reached this point, we don't know what the token is
@@ -4094,6 +4098,10 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue
 
     case NeToken_OpenTable:
         if (!ReadExpressions(N, lex, NeToken_CloseTable, result)) return NE_NO;
+        break;
+
+    case NeToken_OpenSeq:
+        if (!ReadExpressions(N, lex, NeToken_CloseSeq, result)) return NE_NO;
         break;
 
     case NeToken_Error:
@@ -4180,6 +4188,10 @@ static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken,
                 }
 
                 *result = newTable;
+            }
+            else if (terminatingToken == NeToken_CloseSeq)
+            {
+                *result = NE_BOX(root, NE_PT_SEQUENCE);
             }
             else
             {
@@ -4443,6 +4455,14 @@ static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OU
                 Apply(N, func, NE_TAIL(expression), environment, result) ? NE_YES : NE_NO;
             break;
         }
+
+    case NE_PT_SEQUENCE:
+        {
+            NeValue newEnv = 0;
+            if (!ExtendEnvironment(N, environment, NE_BOX(environment, NE_PT_TABLE), 0, 0, &newEnv)) return NE_NO;
+            if (!EvaluateList(N, expression & ~0xfull, NE_CAST(newEnv, NeTable), result)) return NE_NO;
+            break;
+    }
 
     case NE_PT_KEYVALUE:
         // Evaluate a key/value assignment.
