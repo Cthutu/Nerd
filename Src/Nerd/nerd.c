@@ -4627,6 +4627,50 @@ NeBool NeRegisterNatives(Nerd N, NeNativeInfoRef nativeList, NeValue environment
 //----------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------
+// Core natives
+//----------------------------------------------------------------------------------------------------
+
+static NeBool N_Fn(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue body;
+    NeValue scan;
+    NeUInt index = 1;
+    NeValue func;
+
+    // Get body of function
+    NE_NEED_NUM_ARGS(N, args, 2);
+    body = NE_TAIL(args);
+
+    // Get arguments of function and check them
+    args = NE_HEAD(args);
+    NE_CHECK_ARG_TYPE(N, args, 1, NeType_List);
+
+    for (scan = args; scan; scan = NE_TAIL(scan), ++index)
+    {
+        NeValue arg = NE_HEAD(scan);
+        if (!NE_IS_SYMBOL(arg))
+        {
+            return NeError(N, "Arguments declaration in lambda is invalid.  Argument %u must be a symbol.", index);
+        }
+    }
+
+    func = NeCreateClosure(N, args, body, env);
+    if (func)
+    {
+        *result = func;
+    }
+
+    return func ? NE_YES : NE_NO;
+}
+
+static NeBool N_Quote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
+    *result = NE_HEAD(args);
+    return NE_YES;
+}
+
+//----------------------------------------------------------------------------------------------------
 // Arithmetic
 //----------------------------------------------------------------------------------------------------
 
@@ -4768,48 +4812,25 @@ static NeBool N_Mod(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     return NE_YES;
 }
 
-static NeBool N_Fn(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
-{
-    NeValue body;
-    NeValue scan;
-    NeUInt index = 1;
-    NeValue func;
-
-    // Get body of function
-    NE_NEED_NUM_ARGS(N, args, 2);
-    body = NE_TAIL(args);
-
-    // Get arguments of function and check them
-    args = NE_HEAD(args);
-    NE_CHECK_ARG_TYPE(N, args, 1, NeType_List);
-
-    for (scan = args; scan; scan = NE_TAIL(scan), ++index)
-    {
-        NeValue arg = NE_HEAD(scan);
-        if (!NE_IS_SYMBOL(arg))
-        {
-            return NeError(N, "Arguments declaration in lambda is invalid.  Argument %u must be a symbol.", index);
-        }
-    }
-
-    func = NeCreateClosure(N, args, body, env);
-    if (func)
-    {
-        *result = func;
-    }
-
-    return func ? NE_YES : NE_NO;
-}
+//----------------------------------------------------------------------------------------------------
+// Standard natives registration
+//----------------------------------------------------------------------------------------------------
 
 NeBool RegisterCoreNatives(Nerd N)
 {
     NeNativeInfo info[] = {
+        // Core functions
+        NE_NATIVE("fn", N_Fn)
+        NE_NATIVE("quote", N_Quote)
+
+        // Arithmetic
         NE_NATIVE("+", N_Add)
         NE_NATIVE("-", N_Subtract)
         NE_NATIVE("*", N_Multiply)
         NE_NATIVE("/", N_Divide)
         NE_NATIVE("%", N_Mod)
-        NE_NATIVE("fn", N_Fn)
+
+        // The end!
         NE_END_NATIVES
     };
 
