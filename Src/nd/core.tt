@@ -74,7 +74,7 @@ Function.TwoParams2		x:(fn (x y) y) (x 1 2)										2
 Function.TwoParams3		x:(fn (x y) (+ x y)) (x 1 2)								3
 Function.LocalVar		x:(fn (x) y:x y) (x 42)										42
 Function.LocalFunc		x:(fn (x) y:(fn (x) x) (y x)) (x 42)						42
-#Function.OutsideVar		x:(fn (x) y:(fn () x) (y)) (x 42)						42
+Function.OutsideVar		x:(fn (x) y:(fn () x) (y)) (x 42)							42
 Function.FuncNotDefined	x:(fn () (y)) y:(fn () 42) (x)								42
 
 #
