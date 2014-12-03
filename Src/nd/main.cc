@@ -8,10 +8,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <csignal>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <crtdbg.h>
 #endif
 
 // Enables the unit testing if set to 1
@@ -338,10 +340,17 @@ static Nerd CreateSession(int argc, const char** argv, NeBool* interactive)
 // Main entry point
 //----------------------------------------------------------------------------------------------------
 
+void SigHandler(int)
+{
+
+}
+
 int main(int argc, const char** argv)
 {
     Nerd N;
     NeBool interactive = NE_NO;
+
+    std::signal(SIGINT, &SigHandler);
 
     // Initialise the session
     N = CreateSession(argc, argv, &interactive);
@@ -358,7 +367,7 @@ int main(int argc, const char** argv)
         {
             fprintf(stdout, "Nerd Shell (V" NE_VERSION_STRING ")\n");
             fprintf(stdout, NE_COPYRIGHT_STRING "\n\n");
-            fprintf(stdout, "Type CTRL-C to quit.\n\n");
+            fprintf(stdout, "Type CTRL-C or enter ,q to quit.\n\n");
 
             for (;;)
             {
@@ -370,8 +379,18 @@ int main(int argc, const char** argv)
                 fprintf(stdout, "%s> ", nspace ? nspace : "/");
 
                 result = getline(&input, &size, stdin);
+                if (*input == ',')
+                {
+                    switch (input[1])
+                    {
+                    case 'q':
+                        result = -1;
+                        break;
+                    }
+                }
                 if (-1 == result)
                 {
+                    free(input);
                     break;
                 }
 
@@ -396,6 +415,8 @@ int main(int argc, const char** argv)
                     }
                 }
 
+                free(input);
+
                 NeGarbageCollect(N);
             }
         }
@@ -403,6 +424,13 @@ int main(int argc, const char** argv)
         NeClose(N);
     }
 
-    printf("\nEND\n");
+    fprintf(stdout, "\nEND\n");
+
+#if defined(_WIN32) && defined(_DEBUG)
+    if (!_CrtDumpMemoryLeaks())
+    {
+        OutputDebugStringA("NO MEMORY LEAKS!\n");
+    }
+#endif
     return 0;
 }
