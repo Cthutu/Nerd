@@ -103,3 +103,31 @@ Seq.LocalVars2			a:3 { a: 4 } a												3
 #
 Quote.Symbol			(quote a)													a
 Quote.List				(quote (1 2 3))												(1 2 3)
+
+#
+# Characters
+#
+Character.Lit.Space		\space														\space
+Character.Lit.Backspace	\backspace													\backspace
+Character.Lit.Tab		\tab														\tab
+Character.Lit.Newline	\newline													\newline
+Character.Lit.Return	\return														\return
+Character.Lit.Bell		\bell														\bell
+Character.Lit.Escape	\esc														\esc
+Character.Int.Space		\#32														\space
+Character.Int.Backspace	\#8															\backspace
+Character.Int.Tab		\#9															\tab
+Character.Int.Newline	\#10														\newline
+Character.Int.Return	\#13														\return
+Character.Int.Bell		\#7															\bell
+Character.Int.Escape	\#27														\esc
+Character.Hex.Space		\#x20														\space
+Character.Hex.Backspace	\#x8														\backspace
+Character.Hex.Tab		\#x9														\tab
+Character.Hex.Newline	\#xa														\newline
+Character.Hex.Return	\#xd														\return
+Character.Hex.Bell		\#x7														\bell
+Character.Hex.Escape	\#x1b														\esc
+Character.Letter.Char	\A															\A
+Character.Letter.Int	\#65														\A
+Character.Letter.Hex	\#x41														\A

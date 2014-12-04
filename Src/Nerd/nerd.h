@@ -43,7 +43,8 @@ typedef long long NeInt;            // Standard integer size of Nerd - always 64
 typedef unsigned long long NeUInt;  // Unsigned version of standard integer
 typedef double NeFloat;             // Standard float of Nerd - always 64-bit
 typedef char NeBool;                // Boolean result.  Always either NE_YES or NE_NO.
-typedef const char* NeString;       // This string is managed - can be freed by the garbage collector
+typedef char NeChar;                // Character allowed in Nerd (currently ASCII only).
+typedef const NeChar* NeString;     // This string is managed - can be freed by the garbage collector
 
 #define NE_YES (1)
 #define NE_NO (0)

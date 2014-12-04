@@ -103,7 +103,7 @@ extern "C"
 //	0011	3f		Short ratio		    L		28-bit values		Represents a small ratio
 //	0100	4f		Boolean             L       0=no, 1=yes         Represents a boolean value
 //	0101	5f		Native function     N		Index of func		Represents a C function that can be called from Titan code
-//	0110	6f		?
+//	0110	6f		Character           L       8-bit character     Represents a single ASCII character
 //	0111	7f		?
 //	1000	8f		?
 //	1001	9f		?
@@ -146,6 +146,7 @@ typedef enum _NeType
     NeType_Undefined,
     NeType_Boolean,
     NeType_Native,
+    NeType_Character,
 
     NeType_COUNT
 }
@@ -169,7 +170,8 @@ NeType;
 #define NE_XT_SHORTFLOAT	(2 << 4)
 #define NE_XT_SHORTRATIO	(3 << 4)
 #define NE_XT_BOOLEAN       (4 << 4)
-#define NE_XT_NATIVE    (5 << 4)
+#define NE_XT_NATIVE        (5 << 4)
+#define NE_XT_CHARACTER     (6 << 4)
 
 // Type checking macros
 #define NE_IS_PRIMARY_TYPE(v, tt)		(NE_TYPEOF(v) == (tt))
@@ -193,6 +195,7 @@ NeType;
 #define NE_IS_UNDEFINED(v)				NE_IS_EXTENDED_TYPE((v), NE_XT_UNDEFINED)
 #define NE_IS_BOOLEAN(v)                NE_IS_EXTENDED_TYPE((v), NE_XT_BOOLEAN)
 #define NE_IS_NATIVE(v)                 NE_IS_EXTENDED_TYPE((v), NE_XT_NATIVE)
+#define NE_IS_CHARACTER(v)              NE_IS_EXTENDED_TYPE((v), NE_XT_CHARACTER)
 #define NE_IS_CELL_HIERARCHY(v)         (NE_TYPEOF(v) < 8)
 
 #define NE_IS_INTERNAL(v)				(((v) & 0x8f) == 0x8f)
