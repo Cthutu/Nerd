@@ -131,3 +131,9 @@ Character.Hex.Escape	\#x1b														\esc
 Character.Letter.Char	\A															\A
 Character.Letter.Int	\#65														\A
 Character.Letter.Hex	\#x41														\A
+
+#
+# Undefined
+#
+
+Undefined.Literal		undefined													undefined

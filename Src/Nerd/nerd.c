@@ -50,6 +50,7 @@
 #define NE_DEBUG_GC                     0       // Garbage collection
 #define NE_DEBUG_TRACE_EVAL             0       // Trace evaluation
 #define NE_DEBUG_TO_FILE                0       // Output to "nerd-debug.log" all output
+#define NE_DEBUG_SYMBOL_HASH            0       // Outputs the hash of every symbol it finds
 
 //----------------------------------------------------------------------------------------------------
 // System definition
@@ -1134,7 +1135,7 @@ static NeBool BufferAlloc(NeBufferRef* buffer, NeUInt size, NE_OUT void** addres
 
 // Add a memory block to our buffer
 //
-static void* BufferAdd(NeBufferRef* buffer, void* memBlock, NeUInt size)
+static void* BufferAdd(NeBufferRef* buffer, const void* memBlock, NeUInt size)
 {
     void* address;
 
@@ -1146,7 +1147,7 @@ static void* BufferAdd(NeBufferRef* buffer, void* memBlock, NeUInt size)
 
 // Set a block of memory within the buffer at a position from the beginning of the non-committed data.
 //
-static void BufferSet(NeBufferRef buffer, NeUInt position, void* memBlock, NeUInt size)
+static void BufferSet(NeBufferRef buffer, NeUInt position, const void* memBlock, NeUInt size)
 {
     NE_ASSERT((buffer->mCommit + position + size) <= buffer->mCursor);
     CopyMemory(&buffer->mData[buffer->mCommit + position], memBlock, size);
@@ -1269,7 +1270,7 @@ static NeBool FormatScratch(Nerd N, const char* format, ...)
     return result;
 }
 
-static NeBool AddScratchBuffer(Nerd N, void* buffer, NeUInt size)
+static NeBool AddScratchBuffer(Nerd N, const void* buffer, NeUInt size)
 {
     return BufferAdd(&G(mScratch), buffer, size) != 0 ? NE_YES : NE_NO;
 }
@@ -2984,6 +2985,7 @@ typedef enum _NeToken
     NeToken_No,                 // no
     NeToken_True,               // true
     NeToken_False,              // false
+    NeToken_Undefined,          // undefined
 
     NeToken_COUNT
 }
@@ -3037,7 +3039,7 @@ static const unsigned int gKeyWordHashes[] =
     /* 7 */		0,
     /* 8 */		0,
     /* 9 */		0,
-    /* A */		0,
+    /* A */		NeToken_Undefined,
     /* B */		0,
     /* C */		NeToken_No,
     /* D */		0,
@@ -3055,6 +3057,7 @@ static const char* gKeywords[NeToken_COUNT - NeToken_KEYWORDS] =
     "2no",
     "4true",
     "5false",
+    "9undefined",
 };
 
 typedef struct _NeLex
@@ -3644,6 +3647,14 @@ static NeToken NextToken(NeLexRef L)
             }
         }
 
+#if NE_DEBUG_SYMBOL_HASH
+        ResetScratch(L->mMachine);
+        FormatScratch(L->mMachine, "Hash: \"");
+        AddScratchBuffer(L->mMachine, L->mStartToken, L->mEndToken - L->mStartToken);
+        FormatScratch(L->mMachine, "\": %x\n", L->mHash);
+        NeOut(L->mMachine, GetScratch(L->mMachine));
+#endif
+
         // If we reach this point, we don't have a built-in keyword, so it must be a symbol or user
         // keyword.
         NE_LEX_RETURN(isKeyword ? NeToken_Keyword : NeToken_Symbol);
@@ -4064,7 +4075,7 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
     case NE_PT_EXTENDED:
         switch (NE_EXTENDED_TYPEOF(v))
         {
-        case NE_XT_UNDEFINED:	    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "<undefined>" : "");
+        case NE_XT_UNDEFINED:	    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "undefined" : "");
         case NE_XT_SHORTINT:
         case NE_XT_SHORTFLOAT:
         case NE_XT_SHORTRATIO:
@@ -4303,6 +4314,10 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue
     case NeToken_No:
     case NeToken_False:
         *result = NE_BOOLEAN_VALUE(0);
+        break;
+
+    case NeToken_Undefined:
+        *result = NE_MAKE_EXTENDED_VALUE(0, NE_XT_UNDEFINED);
         break;
 
     default:
