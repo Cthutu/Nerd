@@ -17,7 +17,8 @@
 #endif
 
 // Enables the unit testing if set to 1
-#define NE_TEST			0
+#define NE_TEST			1
+#define NE_BREAK_ALLOC  0
 
 #if NE_TEST
 void TestMain();
@@ -349,6 +350,10 @@ int main(int argc, const char** argv)
 {
     Nerd N;
     NeBool interactive = NE_NO;
+
+#if NE_BREAK_ALLOC > 0 && defined(_WIN32)
+    _CrtSetBreakAlloc(NE_BREAK_ALLOC);
+#endif
 
     std::signal(SIGINT, &SigHandler);
 

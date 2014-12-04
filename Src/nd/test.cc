@@ -166,8 +166,11 @@ void TestMain()
                 const char* namee, *codee, *resulte;
                 const char* scan = buffer;
 
-                if (*scan == '#') continue;
-                if (*scan == '\n') continue;
+                if (*scan == '#' || *scan == '\n')
+                {
+                    NeClose(T->mSession);
+                    continue;
+                }
 
                 // Extract name
                 while (*scan && (*scan != '\t')) ++scan;
@@ -176,6 +179,7 @@ void TestMain()
                 {
                     NeOut(T->mSession, "WARNING:%llu: Invalid line format\n", line);
                     ++T->mWarnings;
+                    NeClose(T->mSession);
                     continue;
                 }
                 while (*scan && (*scan == '\t')) ++scan;
@@ -190,6 +194,7 @@ void TestMain()
                 {
                     NeOut(T->mSession, "WARNING:%llu: [%s] Invalid line format\n", line, name);
                     ++T->mWarnings;
+                    NeClose(T->mSession);
                     continue;
                 }
                 while (*scan && (*scan == '\t')) ++scan;
@@ -204,6 +209,7 @@ void TestMain()
                 {
                     NeOut(T->mSession, "WARNING:%llu: [%s] Invalid line format\n", line, name);
                     ++T->mWarnings;
+                    NeClose(T->mSession);
                     continue;
                 }
                 strncpy(result, resulti, (size_t)(resulte - resulti));
