@@ -1743,6 +1743,12 @@ NeValue NeCreateCons(Nerd N, NeValue head, NeValue tail)
     return NE_BOX(newCell, NE_PT_CELL);
 }
 
+NeValue NeCreateList(Nerd N, NeUInt numElems)
+{
+    NeCellRef list = (NeCellRef)PoolAcquire(&G(mCellsPool), numElems, NE_PT_CELL);
+    return NE_BOX(list, NE_PT_CELL);
+}
+
 //----------------------------------------------------------------------------------------------------{CHAR}
 //----------------------------------------------------------------------------------------------------
 //  C H A R A C T E R   M A N A G E M E N T
@@ -2977,6 +2983,7 @@ typedef enum _NeToken
     NeToken_CloseTable,         // ]
     NeToken_OpenSeq,            // {
     NeToken_CloseSeq,           // }
+    NeToken_Quote,              // '
 
     // Keywords
     NeToken_KEYWORDS,
@@ -3782,6 +3789,7 @@ static NeToken NextToken(NeLexRef L)
     else if (']' == c)      NE_LEX_RETURN(NeToken_CloseTable);
     else if ('{' == c)      NE_LEX_RETURN(NeToken_OpenSeq);
     else if ('}' == c)      NE_LEX_RETURN(NeToken_CloseSeq);
+    else if ('\'' == c)     NE_LEX_RETURN(NeToken_Quote);
 
     //----------------------------------------------------------------------------------------------------
     // If we've reached this point, we don't know what the token is
@@ -4075,7 +4083,16 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
     case NE_PT_EXTENDED:
         switch (NE_EXTENDED_TYPEOF(v))
         {
-        case NE_XT_UNDEFINED:	    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "undefined" : "");
+        case NE_XT_CONSTANT:
+            {
+                switch (NE_EXTENDED_VALUE(v))
+                {
+                case NE_C_UNDEFINED:    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "undefined" : "");
+                case NE_C_QUOTE:        return FormatScratch(N, "'");
+                }
+            }
+            return FormatScratch(N, "<undefined>");
+            
         case NE_XT_SHORTINT:
         case NE_XT_SHORTFLOAT:
         case NE_XT_SHORTRATIO:
@@ -4298,6 +4315,10 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue
         if (!ReadExpressions(N, lex, NeToken_CloseSeq, result)) return NE_NO;
         break;
 
+    case NeToken_Quote:
+        *result = NE_QUOTE_VALUE;
+        break;
+
     case NeToken_Error:
         // Don't do anything, the error is handled by NextToken().
         return NE_NO;
@@ -4317,7 +4338,7 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue
         break;
 
     case NeToken_Undefined:
-        *result = NE_MAKE_EXTENDED_VALUE(0, NE_XT_UNDEFINED);
+        *result = NE_UNDEFINED_VALUE;
         break;
 
     default:
@@ -4448,6 +4469,43 @@ static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken,
     }
 }
 
+// Transform a code list into the final version by processing reader macros.
+//
+static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
+{
+    NeValue scan = *codeList;
+    NeValue last = 0;
+
+    while (scan != 0)
+    {
+        // Handle quote
+        if (NE_HEAD(scan) == NE_QUOTE_VALUE)
+        {
+            NeValue quoteSym = NeCreateSymbol(N, "quote", 5);
+            NeValue quoteList = 0;
+            NeValue arg = NE_TAIL(scan);
+
+            if (0 == arg)
+            {
+                return NeError(N, "Invalid quote.");
+            }
+
+            if (!quoteSym) return NeOutOfMemory(N);
+
+            quoteList = NeCreateCons(N, quoteSym, arg);
+
+            NE_HEAD(scan) = quoteList;
+            NE_TAIL(scan) = NE_TAIL(arg);
+            NE_TAIL(arg) = 0;
+        }
+
+        last = scan;
+        scan = NE_TAIL(scan);
+    }
+
+    return NE_YES;
+}
+
 // Read a buffer and convert it into a code-list (a list of values).  The most common use of this
 // function is to prepare code for the compiler, but you can use this to parse data as well.
 //
@@ -4463,6 +4521,10 @@ static NeBool Read(Nerd N, const char* source, const char* str, NeUInt size, NE_
     InitLex(N, source, str, size, &lex);
     success = ReadExpressions(N, &lex, NeToken_EOF, codeList);
     DestroyLex(&lex);
+    if (success)
+    {
+        success = Transform(N, codeList);
+    }
 
     return success;
 }

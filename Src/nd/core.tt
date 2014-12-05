@@ -165,3 +165,12 @@ SubString.LargeIndex	("Hello" 5)													FAIL:Index out of range in string s
 SubString.LastChar		("Hello" 4)													\o
 SubString.LastString	("Hello" 4 1)												"o"
 SubString.TooLarge		("Hello" 2 5)												FAIL:Invalid size parameter for string subscript.
+
+#
+# Reader macros
+# Quoting
+#
+
+Reader.Quote.NoValue	'															FAIL:Invalid quote.
+Reader.Quote.List		'(1 2 3)													(1 2 3)
+Reader.Quote.Symbol		'a															a

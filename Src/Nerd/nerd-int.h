@@ -97,7 +97,7 @@ extern "C"
 // are specific to the type:
 //
 //	BITS	VALUE	TYPE			    TYPE	BITS 8-63			DESCRIPTION
-//	0000	0f		Undefined		    N		0					Represents an undefined value
+//	0000	0f		Constant types	    N		Index of type	    Represents a value that is constant
 //	0001	1f		Short int		    L		56-bit int			Represents a small integer value
 //	0010	2f		Short float		    L		56-bit float		Represents a small 56-bit float
 //	0011	3f		Short ratio		    L		28-bit values		Represents a small ratio
@@ -113,6 +113,12 @@ extern "C"
 //	1101	df		?
 //	1110	ef		?
 //	1111    ff		?
+//
+// The constant types supported for NE_XT_CONSTANT are:
+//
+//      Type    Literal     Description
+//      0       undefined   Represents an undefined type.
+//      1       quote       Represents a ' symbol, this is transformed by the reader so should never evaluate it.
 //
 // Checklist for adding new value type:
 //
@@ -165,13 +171,17 @@ NeType;
 #define NE_PT_EXTENDED		15
 
 // Extended types:
-#define NE_XT_UNDEFINED		(0 << 4)
+#define NE_XT_CONSTANT		(0 << 4)
 #define NE_XT_SHORTINT		(1 << 4)
 #define NE_XT_SHORTFLOAT	(2 << 4)
 #define NE_XT_SHORTRATIO	(3 << 4)
 #define NE_XT_BOOLEAN       (4 << 4)
 #define NE_XT_NATIVE        (5 << 4)
 #define NE_XT_CHARACTER     (6 << 4)
+
+// Constant types:
+#define NE_C_UNDEFINED      0
+#define NE_C_QUOTE          1
 
 // Type checking macros
 #define NE_IS_PRIMARY_TYPE(v, tt)		(NE_TYPEOF(v) == (tt))
@@ -192,7 +202,8 @@ NeType;
                                          (NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTFLOAT)))
 #define NE_IS_RATIO(v)                  ((NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) && (NE_CAST((v), NeNumber)->mNumType == NeNumberType_Ratio)) || \
                                          (NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTRATIO)))
-#define NE_IS_UNDEFINED(v)				NE_IS_EXTENDED_TYPE((v), NE_XT_UNDEFINED)
+#define NE_IS_UNDEFINED(v)				(NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_UNDEFINED))
+#define NE_IS_QUOTE(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_QUOTE))
 #define NE_IS_BOOLEAN(v)                NE_IS_EXTENDED_TYPE((v), NE_XT_BOOLEAN)
 #define NE_IS_NATIVE(v)                 NE_IS_EXTENDED_TYPE((v), NE_XT_NATIVE)
 #define NE_IS_CHARACTER(v)              NE_IS_EXTENDED_TYPE((v), NE_XT_CHARACTER)
@@ -201,7 +212,8 @@ NeType;
 #define NE_IS_INTERNAL(v)				(((v) & 0x8f) == 0x8f)
 
 // Value creation macros
-#define NE_UNDEFINED_VALUE              NE_MAKE_EXTENDED_VALUE(NE_XT_UNDEFINED, 0)
+#define NE_UNDEFINED_VALUE              NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_UNDEFINED)
+#define NE_QUOTE_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_QUOTE)
 #define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? 1 : 0))
 
 // Values of guaranteed bit size - checked by NeOpen()
@@ -332,6 +344,10 @@ NeBool NeEqual(NeValue v1, NeValue v2);
 // Create a cons-cell given the head and tail.  Will return 0 if there is an out of memory error.
 //
 NeValue NeCreateCons(Nerd N, NeValue head, NeValue tail);
+
+// Create a list with a given number of elements
+//
+NeValue NeCreateList(Nerd N, NeUInt numElems);
 
 //----------------------------------------------------------------------------------------------------
 // String management
