@@ -137,3 +137,18 @@ Character.Letter.Hex	\#x41														\A
 #
 
 Undefined.Literal		undefined													undefined
+
+#
+# List subscriptions
+#
+
+ListSub.Basic.1			((quote (4 \a "hello")) 0)									4
+ListSub.Basic.2			((quote (4 \a "hello")) 1)									\a
+ListSub.Basic.3			((quote (4 \a "hello")) 2)									"hello"
+ListSub.Deep.1			((quote (1 (2 3) 4)) 1)										(2 3)
+ListSub.Deep.2			((quote (1 (2 3) 4)) 1 1)									3
+ListSub.Error.Neg		((quote (1 2 3)) -1)										FAIL
+ListSub.Error.OOR		((quote (1 2 3)) 4)											FAIL
+ListSub.Error.NonList.1	((quote a) 0)												FAIL
+ListSub.Error.NonList.2	((quote (1 2 3)) 1 1)										FAIL
+ListSub.Error.BadIndex	((quote (1 2 3)) \a)										FAIL

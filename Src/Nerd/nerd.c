@@ -4571,6 +4571,52 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
 {
     switch (NE_TYPEOF(func))
     {
+    case NE_PT_CELL:
+        {
+            // List subscription
+            int subIndex = 1;
+            while (args)
+            {
+                NeValue index;
+                NeInt actualIndex;
+
+                // Obtain the index
+                if (!Evaluate(N, NE_HEAD(args), environment, &index)) return NE_NO;
+                if (!NE_IS_INTEGER(index))
+                {
+                    return NeError(N, "Invalid type for list index.  Found type '%s'", NeGetTypeName(NeGetType(index)));
+                }
+                actualIndex = NE_EXTENDED_SIGNED_VALUE(index);
+                if (actualIndex < 0)
+                {
+                    return NeError(N, "Invalid negative index in list subscript %d", subIndex);
+                }
+                
+                // Find the correct element
+                for (; actualIndex > 0; --actualIndex)
+                {
+                    func = NE_TAIL(func);
+                    if (0 == func)
+                    {
+                        return NeError(N, "Index out of range in list subscript %d", subIndex);
+                    }
+                }
+                func = NE_HEAD(func);
+
+                args = NE_TAIL(args);
+                ++subIndex;
+
+                if (args && !NE_IS_CELL(func))
+                {
+                    return NeError(N, "Attempt to index a non-list in a list subscript path");
+                }
+            }
+
+            *result = func;
+            return NE_YES;
+        }
+        break;
+
     case NE_PT_FUNCTION:
         {
             NeValue funcEnv = GetFunctionEnv(func, NE_BOX(environment, NE_PT_TABLE));
