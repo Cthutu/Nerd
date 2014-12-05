@@ -40,15 +40,24 @@ NeBool DisplayExpectError(TestInfoRef T, const char* testName)
     return NE_YES;
 }
 
-NeBool TestCode(TestInfoRef T, const char* testName, const char* code, NeBool expectToFail)
+NeBool TestCode(TestInfoRef T, const char* testName, const char* code, const char* failMessage)
 {
 
     if (!NeRun(T->mSession, "<Test>", code, -1))
     {
         NeString reason = NePopString(T->mSession);
-        if (expectToFail)
+        if (failMessage)
         {
-            return DisplayExpectError(T, testName);
+            if (strcmp(failMessage, reason) == 0)
+            {
+                return DisplayExpectError(T, testName);
+            }
+            else
+            {
+                DisplayError(T, testName, code, reason);
+                NeOut(T->mSession, "INCORRECT ERROR MESSAGE: Expected '%s'\n", failMessage);
+                return NE_NO;
+            }
         }
         else
         {
@@ -62,7 +71,7 @@ NeBool TestCode(TestInfoRef T, const char* testName, const char* code, NeBool ex
             return DisplayError(T, testName, code, "Unable to convert result to string.");
         }
 
-        if (expectToFail)
+        if (failMessage)
         {
             return DisplayError(T, testName, code, "This test should have failed!");
         }
@@ -76,9 +85,9 @@ NeBool TestSuccess(TestInfoRef T, const char* testName, const char* code)
     return TestCode(T, testName, code, NE_NO);
 }
 
-NeBool TestFailed(TestInfoRef T, const char* testName, const char* code)
+NeBool TestFailed(TestInfoRef T, const char* testName, const char* code, const char* failMessage)
 {
-    return TestCode(T, testName, code, NE_YES);
+    return TestCode(T, testName, code, failMessage);
 }
 
 void TestEqualString(TestInfoRef T, const char* testName, const char* code, const char* result)
@@ -105,9 +114,9 @@ void TestEqualString(TestInfoRef T, const char* testName, const char* code, cons
     }
 }
 
-void TestFail(TestInfoRef T, const char* testName, const char* code)
+void TestFail(TestInfoRef T, const char* testName, const char* code, const char* failMessage)
 {
-    if (TestFailed(T, testName, code))
+    if (TestFailed(T, testName, code, failMessage))
     {
         PASS;
     }
@@ -221,9 +230,9 @@ void TestMain()
                     ++name;
                 }
 
-                if (strcmp(result, "FAIL") == 0)
+                if (strncmp(result, "FAIL:", 5) == 0)
                 {
-                    TestFail(T, name, code);
+                    TestFail(T, name, code, result + 5);
                 }
                 else
                 {

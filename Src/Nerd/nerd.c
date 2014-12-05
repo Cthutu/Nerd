@@ -395,12 +395,12 @@ NeBool NeCheckNumArgs(Nerd N, NeValue args, NeUInt count, NeBool exactCount)
 
     if (exactCount && (countArgs != count))
     {
-        return NeError(N, "Not enough arguments given, expected exactly %u argument%s",
+        return NeError(N, "Not enough arguments given, expected exactly %u argument%s.",
             count, 1 == count ? "" : "s");
     }
     else if (!exactCount)
     {
-        return NeError(N, "Not enough arguments given, expected at least %u argument%s",
+        return NeError(N, "Not enough arguments given, expected at least %u argument%s.",
             count, 1 == count ? "" : "s");
     }
 
@@ -3670,7 +3670,7 @@ static NeToken NextToken(NeLexRef L)
         c = NextChar(L);
         if (0 == c || ' ' == c || '\t' == c || '\n' == c)
         {
-            NE_LEX_ERROR("Unterminated character token");
+            NE_LEX_ERROR("Unterminated character token.");
         }
 
         // Check for named characters or hashed characters (\#32 or \#x20)
@@ -3701,10 +3701,10 @@ static NeToken NextToken(NeLexRef L)
                     if (--maxNumChars < 0)
                     {
                         // Two many hex digits to hold a character
-                        NE_LEX_ERROR("Unknown character token");
+                        NE_LEX_ERROR("Unknown character token.");
                     }
                 }
-                if (!NE_IS_TERMCHAR(c)) NE_LEX_ERROR("Unknown character token");
+                if (!NE_IS_TERMCHAR(c)) NE_LEX_ERROR("Unknown character token.");
                 UngetChar(L);
 
                 L->mCharacter = ch;
@@ -3719,7 +3719,7 @@ static NeToken NextToken(NeLexRef L)
                     ch *= 10;
                     ch += c - '0';
                 }
-                if (!NE_IS_TERMCHAR(c)) NE_LEX_ERROR("Unknown character token");
+                if (!NE_IS_TERMCHAR(c)) NE_LEX_ERROR("Unknown character token.");
 
                 UngetChar(L);
 
@@ -3741,7 +3741,7 @@ static NeToken NextToken(NeLexRef L)
             if (c < 'a' || c > 'z')
             {
                 // This cannot be a long character description, so return error
-                NE_LEX_ERROR("Unknown character token");
+                NE_LEX_ERROR("Unknown character token.");
             }
             c = NextChar(L);
         }
@@ -3768,7 +3768,7 @@ static NeToken NextToken(NeLexRef L)
             }
 
             // This character name is invalid
-            NE_LEX_ERROR("Unknown character token");
+            NE_LEX_ERROR("Unknown character token.");
         }
     }
 
@@ -4584,12 +4584,12 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
                 if (!Evaluate(N, NE_HEAD(args), environment, &index)) return NE_NO;
                 if (!NE_IS_INTEGER(index))
                 {
-                    return NeError(N, "Invalid type for list index.  Found type '%s'", NeGetTypeName(NeGetType(index)));
+                    return NeError(N, "Invalid type for list index.  Found type '%s'.", NeGetTypeName(NeGetType(index)));
                 }
                 if (!NeGetNumber(index, &actualIndex)) return NE_NO;
                 if (actualIndex.mInteger < 0)
                 {
-                    return NeError(N, "Invalid negative index in list subscript %d", subIndex);
+                    return NeError(N, "Invalid negative index in list subscript %d.", subIndex);
                 }
                 
                 // Find the correct element
@@ -4598,7 +4598,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
                     func = NE_TAIL(func);
                     if (0 == func)
                     {
-                        return NeError(N, "Index out of range in list subscript %d", subIndex);
+                        return NeError(N, "Index out of range in list subscript %d.", subIndex);
                     }
                 }
                 func = NE_HEAD(func);
@@ -4608,7 +4608,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
 
                 if (args && !NE_IS_CELL(func))
                 {
-                    return NeError(N, "Attempt to index a non-list in a list subscript path");
+                    return NeError(N, "Attempt to index a non-list in a list subscript path.");
                 }
             }
 
@@ -4628,7 +4628,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
 
                 if (0 == args)
                 {
-                    return NeError(N, "Require at least an index to subscript a string");
+                    return NeError(N, "Require at least an index to subscript a string.");
                 }
 
                 if (!Evaluate(N, NE_1ST(args), environment, &indexValue)) return NE_NO;
@@ -4639,11 +4639,11 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
 
                 if (!NE_IS_INTEGER(indexValue))
                 {
-                    return NeError(N, "Invalid string index");
+                    return NeError(N, "Invalid string index.");
                 }
                 if (sizeValue && !NE_IS_INTEGER(sizeValue))
                 {
-                    return NeError(N, "Invalid length parameter for string subscripts");
+                    return NeError(N, "Invalid length parameter for string subscripts.");
                 }
 
                 if (!NeGetNumber(indexValue, &index)) return NE_NO;
@@ -4651,7 +4651,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
 
                 if (index.mInteger < 0 || index.mInteger >= (NeInt)info->mLength)
                 {
-                    return NeError(N, "Index out of range in string subscript");
+                    return NeError(N, "Index out of range in string subscript.");
                 }
 
                 if (0 == sizeValue)
@@ -4663,7 +4663,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
                     if ((size.mInteger < 0) ||
                         ((index.mInteger + size.mInteger) > (NeInt)info->mLength))
                     {
-                        return NeError(N, "Invalid size parameter for string subscript");
+                        return NeError(N, "Invalid size parameter for string subscript.");
                     }
                 }
 

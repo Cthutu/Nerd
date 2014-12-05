@@ -21,9 +21,9 @@ Addition.Mix			(+ 3 1/4)													13/4
 Addition.Single			(+ 2)														2
 Addition.Many			(+ 1 2 3 4 5)												15
 Addition.Nested			(+ 1 3 (+ 7 2))												13
-Addition.NotNumber		(+ 4 5/4 "Hello")											FAIL
+Addition.NotNumber		(+ 4 5/4 "Hello")											FAIL:Argument 3 should be of type 'number', but found type 'string'.
 Addition.Variable		x:4 y:3 (+ x y)												7
-Addition.NoArgs			(+)															FAIL
+Addition.NoArgs			(+)															FAIL:Not enough arguments given, expected at least 1 argument.
 
 Subtraction.Integer		(- 10 3)													7
 Subtraction.Float		(- 7.3 4.1)													3.2
@@ -31,7 +31,7 @@ Subtraction.Ratio		(- 5/4 2/3)													7/12
 Subtraction.Mix			(- 2 1/4)													7/4
 Subtraction.Single		(- 4)														-4
 Subtraction.Many		(- 10 4 3 9)												-6
-Subtraction.NoArgs		(-)															FAIL
+Subtraction.NoArgs		(-)															FAIL:Not enough arguments given, expected at least 1 argument.
 
 Multiplication.Integer	(* 5 4)														20
 Multiplication.Float	(* 1.2 5.6)													6.72
@@ -39,7 +39,7 @@ Multiplication.Ratio	(* 13/4 9/5)												117/20
 Multiplication.Mix		(* 6 18/4)													27
 Multiplication.Single	(* 5)														5
 Multiplication.Many		(* 3 7 2.4 5/4)												63
-Multiplication.NoArgs	(*)															FAIL
+Multiplication.NoArgs	(*)															FAIL:Not enough arguments given, expected at least 1 argument.
 
 Division.Integer		(/ 4 3)														4/3
 Division.Float			(/ 3.2 .6)													5.33333
@@ -47,19 +47,19 @@ Division.Ratio			(/ 4/3 -2/5)												-10/3
 Division.Mix			(/ 5 2/3)													15/2
 Division.Single			(/ 4)														1/4
 Division.Many			(/ 16 2 4)													2
-Division.NoArgs			(/)															FAIL
-Division.ByZero1		(/ 0)														FAIL
-Division.ByZero2		(/ 4 0)														FAIL
-Division.ByZero3		(/ 2 3 0)													FAIL
-Division.ByZero4		x:4 (/ 3 (- x x))											FAIL
+Division.NoArgs			(/)															FAIL:Not enough arguments given, expected at least 1 argument.
+Division.ByZero1		(/ 0)														FAIL:Division by zero.
+Division.ByZero2		(/ 4 0)														FAIL:Division by zero.
+Division.ByZero3		(/ 2 3 0)													FAIL:Division by zero.
+Division.ByZero4		x:4 (/ 3 (- x x))											FAIL:Division by zero.
 
 Mod.Integer				(% 10 3)													1
 Mod.Exact				(% 12 4)													0
-Mod.NoArgs				(%)															FAIL
-Mod.1Arg				(% 4)														FAIL
-Mod.3Args				(% 4 5 6)													FAIL
-Mod.TooManyArgs			(% 5 3 7 8)													FAIL
-Mod.DivByZero			(% 4 0)														FAIL
+Mod.NoArgs				(%)															FAIL:Not enough arguments given, expected exactly 2 arguments.
+Mod.1Arg				(% 4)														FAIL:Not enough arguments given, expected exactly 2 arguments.
+Mod.3Args				(% 4 5 6)													FAIL:Too many arguments given, expected 2 arguments.
+Mod.TooManyArgs			(% 5 3 7 8)													FAIL:Too many arguments given, expected 2 arguments.
+Mod.DivByZero			(% 4 0)														FAIL:Division by zero.
 
 Arithmetic.Nested		(+ (- 10 4 1/2) 6 2/3 (/ 9 4 3) (* 2 3))					227/12
 
@@ -81,8 +81,8 @@ Function.FuncNotDefined	x:(fn () (y)) y:(fn () 42) (x)								42
 # Global variables
 #
 Globals.Basic			x:42 x														42
-Globals.Defined1		x:3 x:4														FAIL
-Globals.Defined2		x:(fn () a:4 a:3) (x)										FAIL
+Globals.Defined1		x:3 x:4														FAIL:Symbol 'x' is already defined.
+Globals.Defined2		x:(fn () a:4 a:3) (x)										FAIL:Symbol 'a' is already defined.
 
 #
 # Closures
@@ -114,6 +114,7 @@ Character.Lit.Newline	\newline													\newline
 Character.Lit.Return	\return														\return
 Character.Lit.Bell		\bell														\bell
 Character.Lit.Escape	\esc														\esc
+Character.Lit.Invalid	\weird														FAIL:<Test>(1): READ ERROR: Unknown character token.
 Character.Int.Space		\#32														\space
 Character.Int.Backspace	\#8															\backspace
 Character.Int.Tab		\#9															\tab
@@ -147,11 +148,11 @@ ListSub.Basic.2			((quote (4 \a "hello")) 1)									\a
 ListSub.Basic.3			((quote (4 \a "hello")) 2)									"hello"
 ListSub.Deep.1			((quote (1 (2 3) 4)) 1)										(2 3)
 ListSub.Deep.2			((quote (1 (2 3) 4)) 1 1)									3
-ListSub.Error.Neg		((quote (1 2 3)) -1)										FAIL
-ListSub.Error.OOR		((quote (1 2 3)) 4)											FAIL
-ListSub.Error.NonList.1	((quote a) 0)												FAIL
-ListSub.Error.NonList.2	((quote (1 2 3)) 1 1)										FAIL
-ListSub.Error.BadIndex	((quote (1 2 3)) \a)										FAIL
+ListSub.Error.Neg		((quote (1 2 3)) -1)										FAIL:Invalid negative index in list subscript 1.
+ListSub.Error.OOR		((quote (1 2 3)) 4)											FAIL:Index out of range in list subscript 1.
+ListSub.Error.NonList.1	((quote a) 0)												FAIL:Invalid procedure.
+ListSub.Error.NonList.2	((quote (1 2 3)) 1 1)										FAIL:Attempt to index a non-list in a list subscript path.
+ListSub.Error.BadIndex	((quote (1 2 3)) \a)										FAIL:Invalid type for list index.  Found type 'character'.
 
 #
 # String subscripts
@@ -159,8 +160,8 @@ ListSub.Error.BadIndex	((quote (1 2 3)) \a)										FAIL
 
 Substring.Character		("Hello" 1)													\e
 Substring.String		("Hello" 1 2)												"el"
-SubString.SmallIndex	("Hello" -1)												FAIL
-SubString.LargeIndex	("Hello" 5)													FAIL
+SubString.SmallIndex	("Hello" -1)												FAIL:Index out of range in string subscript.
+SubString.LargeIndex	("Hello" 5)													FAIL:Index out of range in string subscript.
 SubString.LastChar		("Hello" 4)													\o
 SubString.LastString	("Hello" 4 1)												"o"
-SubString.TooLarge		("Hello" 2 5)												FAIL
+SubString.TooLarge		("Hello" 2 5)												FAIL:Invalid size parameter for string subscript.
