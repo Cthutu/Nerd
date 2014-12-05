@@ -6,31 +6,31 @@
 // Index of sections:   (Incrementally search for '{' + name)
 //
 //  _SESSION        Nerd structure
-//  UTILS           Utility functions
-//  CONFIG          Configuration management
-//  SESSION         Session management
-//  MEMORY          Memory management
 //  BUFFER          Buffer management
-//  SCRATCH         Scratch buffer management
-//  POOL            Pool buffers
+//  CELL            Cell management
+//  CONFIG          Configuration management
+//  DEBUG           Debugging
+//  ERROR           Error handling
+//  EXEC            Execution
+//  FUNCTION        Function management
 //  GC              Garbage collection
 //  HASH            Hash-encoding
-//  CELL            Cell management
-//  STRING          String management
-//  TABLE           Table management
 //  KEYVALUE        Key/value management
-//  SYMBOL          Symbol management
-//  NUMBER          Number management
-//  FUNCTION        Function management
-//  STACK           User stack management
-//  OUTPUT          Output
-//  ERROR           Error handling
 //  LEX             Lexical analysis
-//  READ            Reading
-//  EXEC            Execution
-//  DEBUG           Debugging
+//  MEMORY          Memory management
 //  NATIVE          Native function management
+//  NUMBER          Number management
+//  OUTPUT          Output
+//  POOL            Pool buffers
+//  READ            Reading
+//  SCRATCH         Scratch buffer management
+//  SESSION         Session management
+//  STACK           User stack management
 //  STANDARD        Standard natives
+//  STRING          String management
+//  SYMBOL          Symbol management
+//  TABLE           Table management
+//  UTILS           Utility functions
 //
 //----------------------------------------------------------------------------------------------------
 
