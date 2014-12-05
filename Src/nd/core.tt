@@ -139,7 +139,7 @@ Character.Letter.Hex	\#x41														\A
 Undefined.Literal		undefined													undefined
 
 #
-# List subscriptions
+# List subscripts
 #
 
 ListSub.Basic.1			((quote (4 \a "hello")) 0)									4
@@ -152,3 +152,15 @@ ListSub.Error.OOR		((quote (1 2 3)) 4)											FAIL
 ListSub.Error.NonList.1	((quote a) 0)												FAIL
 ListSub.Error.NonList.2	((quote (1 2 3)) 1 1)										FAIL
 ListSub.Error.BadIndex	((quote (1 2 3)) \a)										FAIL
+
+#
+# String subscripts
+#
+
+Substring.Character		("Hello" 1)													\e
+Substring.String		("Hello" 1 2)												"el"
+SubString.SmallIndex	("Hello" -1)												FAIL
+SubString.LargeIndex	("Hello" 5)													FAIL
+SubString.LastChar		("Hello" 4)													\o
+SubString.LastString	("Hello" 4 1)												"o"
+SubString.TooLarge		("Hello" 2 5)												FAIL
