@@ -118,7 +118,8 @@ extern "C"
 //
 //      Type    Literal     Description
 //      0       undefined   Represents an undefined type.
-//      1       quote       Represents a ' symbol, this is transformed by the reader so should never evaluate it.
+//      1       quote       Represents a ' symbol.  This is transformed by the reader so should never evaluate it.
+//      2       lambda      Represents a -> keyword.  This is transformed by the reader to (fn ...).
 //
 // Checklist for adding new value type:
 //
@@ -141,6 +142,7 @@ typedef NeValue* NeValueRef;
 // Types
 typedef enum _NeType
 {
+    // Basic
     NeType_Nil,
     NeType_List,
     NeType_KeyValue,
@@ -149,10 +151,16 @@ typedef enum _NeType
     NeType_Symbol,
     NeType_String,
     NeType_Number,
+
+    // Extended
     NeType_Undefined,
     NeType_Boolean,
     NeType_Native,
     NeType_Character,
+
+    // Constants
+    NeType_Quote,
+    NeType_Lambda,
 
     NeType_COUNT
 }
@@ -182,6 +190,7 @@ NeType;
 // Constant types:
 #define NE_C_UNDEFINED      0
 #define NE_C_QUOTE          1
+#define NE_C_LAMBDA         2
 
 // Type checking macros
 #define NE_IS_PRIMARY_TYPE(v, tt)		(NE_TYPEOF(v) == (tt))
@@ -204,6 +213,7 @@ NeType;
                                          (NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTRATIO)))
 #define NE_IS_UNDEFINED(v)				(NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_UNDEFINED))
 #define NE_IS_QUOTE(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_QUOTE))
+#define NE_IS_LAMBDA(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_LAMBDA))
 #define NE_IS_BOOLEAN(v)                NE_IS_EXTENDED_TYPE((v), NE_XT_BOOLEAN)
 #define NE_IS_NATIVE(v)                 NE_IS_EXTENDED_TYPE((v), NE_XT_NATIVE)
 #define NE_IS_CHARACTER(v)              NE_IS_EXTENDED_TYPE((v), NE_XT_CHARACTER)
@@ -214,6 +224,7 @@ NeType;
 // Value creation macros
 #define NE_UNDEFINED_VALUE              NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_UNDEFINED)
 #define NE_QUOTE_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_QUOTE)
+#define NE_LAMBDA_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_LAMBDA)
 #define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? 1 : 0))
 
 // Values of guaranteed bit size - checked by NeOpen()
@@ -344,6 +355,10 @@ NeBool NeEqual(NeValue v1, NeValue v2);
 // Create a cons-cell given the head and tail.  Will return 0 if there is an out of memory error.
 //
 NeValue NeCreateCons(Nerd N, NeValue head, NeValue tail);
+
+// Recycle a cons-cell that you don't need any more.
+//
+void NeRecycleCons(Nerd N, NeValue v);
 
 // Create a list with a given number of elements
 //
@@ -555,6 +570,13 @@ NeBool NeCheckNumArgs(Nerd N, NeValue args, NeUInt count, NeBool exactCount);
 // Return a temporary string describing a value.
 //
 NeString NeDescribe(Nerd N, NeValue v);
+
+//----------------------------------------------------------------------------------------------------
+// Debug routines
+//----------------------------------------------------------------------------------------------------
+
+// Display <name>: <value>.
+void NeDebugOutValue(Nerd N, const char* name, NeValue value);
 
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------

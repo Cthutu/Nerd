@@ -51,6 +51,7 @@
 #define NE_DEBUG_TRACE_EVAL             0       // Trace evaluation
 #define NE_DEBUG_TO_FILE                0       // Output to "nerd-debug.log" all output
 #define NE_DEBUG_SYMBOL_HASH            0       // Outputs the hash of every symbol it finds
+#define NE_DEBUG_MACRO_EXPANSION        0       // Show the transformation of code after reader macros
 
 //----------------------------------------------------------------------------------------------------
 // System definition
@@ -442,6 +443,13 @@ NeType NeGetType(NeValue v)
         NeType_Character,
     };
 
+    static NeType constantTypes[] =
+    {
+        NeType_Undefined,
+        NeType_Quote,
+        NeType_Lambda,
+    };
+
     NeUInt type = 0;
     NeType result = NeType_Undefined;
 
@@ -455,7 +463,15 @@ NeType NeGetType(NeValue v)
     else
     {
         type = NE_EXTENDED_TYPEOF(v) >> 4;
-        result = (type < sizeof(extendedTypes) / sizeof(extendedTypes[0])) ? extendedTypes[type] : NeType_Undefined;
+        if (type == NeType_Undefined)
+        {
+            type >>= 4;
+            result = (type < sizeof(constantTypes) / sizeof(constantTypes[0])) ? constantTypes[type] : NeType_Undefined;
+        }
+        else
+        {
+            result = (type < sizeof(extendedTypes) / sizeof(extendedTypes[0])) ? extendedTypes[type] : NeType_Undefined;
+        }
     }
 
     return result;
@@ -476,6 +492,8 @@ NeString NeGetTypeName(NeType t)
         "boolean",
         "native",
         "character",
+        "quote",
+        "lambda",
     };
 
     return typeNames[t];
@@ -1459,21 +1477,21 @@ static void* PoolAcquire(NePoolRef pool, NeUInt numElems, NeUInt type)
 // Recycle a single element and return it back to the pool.  Usually PoolCollect()
 // will do the recycling, but there are occasions that it is more efficient to recycle
 // an element immediately.  Such as when you acquire temporary elements.
-//
-//static void PoolRecycle(NePoolRef pool, void* elem)
-//{
-//    NeGcObjectRef obj = (NeGcObjectRef)elem;
-//
-//    // Destroy the element
-//    if (pool->mDestroyFunc) pool->mDestroyFunc(pool->mSession, elem);
-//
-//    // Add it to the free list chain
-//    obj->mNext = pool->mFreeList;
-//    pool->mFreeList = obj;
-//    
-//    // Mark it as unused
-//    obj->mUsed = 0;
-//}
+
+static void PoolRecycle(NePoolRef pool, void* elem)
+{
+   NeGcObjectRef obj = (NeGcObjectRef)elem;
+
+   // Destroy the element
+   if (pool->mDestroyFunc) pool->mDestroyFunc(pool->mSession, elem);
+
+   // Add it to the free list chain
+   obj->mNext = pool->mFreeList;
+   pool->mFreeList = obj;
+   
+   // Mark it as unused
+   obj->mUsed = 0;
+}
 
 //----------------------------------------------------------------------------------------------------{GC}
 //----------------------------------------------------------------------------------------------------
@@ -1741,6 +1759,11 @@ NeValue NeCreateCons(Nerd N, NeValue head, NeValue tail)
     }
 
     return NE_BOX(newCell, NE_PT_CELL);
+}
+
+void NeRecycleCons(Nerd N, NeValue v)
+{
+    PoolRecycle(&G(mCellsPool), NE_CAST(v, NeCell));
 }
 
 NeValue NeCreateList(Nerd N, NeUInt numElems)
@@ -2993,6 +3016,7 @@ typedef enum _NeToken
     NeToken_True,               // true
     NeToken_False,              // false
     NeToken_Undefined,          // undefined
+    NeToken_Lambda,             // ->
 
     NeToken_COUNT
 }
@@ -3051,7 +3075,7 @@ static const unsigned int gKeyWordHashes[] =
     /* C */		NeToken_No,
     /* D */		0,
     /* E */		0,
-    /* F */		0,
+    /* F */		NeToken_Lambda,
 };
 
 // The order of this array MUST match the order of the enums after
@@ -3065,6 +3089,7 @@ static const char* gKeywords[NeToken_COUNT - NeToken_KEYWORDS] =
     "4true",
     "5false",
     "9undefined",
+    "2->",
 };
 
 typedef struct _NeLex
@@ -4089,6 +4114,7 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
                 {
                 case NE_C_UNDEFINED:    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "undefined" : "");
                 case NE_C_QUOTE:        return FormatScratch(N, "'");
+                case NE_C_LAMBDA:       return FormatScratch(N, "->");
                 }
             }
             return FormatScratch(N, "<undefined>");
@@ -4230,6 +4256,13 @@ void NeOut(Nerd N, const char* format, ...)
     va_end(args);
 }
 
+static void NeDebugOutValue(Nerd N, const char* name, NeValue value)
+{
+    NePushValue(N, value);
+    NeToString(N, -1, NE_CONVERT_MODE_REPL);
+    NeOut(N, "%s: %s\n", name, NePopString(N));
+}
+
 //----------------------------------------------------------------------------------------------------{ERROR}
 //----------------------------------------------------------------------------------------------------
 // E R R O R   H A N D L I N G
@@ -4339,6 +4372,10 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue
 
     case NeToken_Undefined:
         *result = NE_UNDEFINED_VALUE;
+        break;
+
+    case NeToken_Lambda:
+        *result = NE_LAMBDA_VALUE;
         break;
 
     default:
@@ -4478,8 +4515,13 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
 
     while (scan != 0)
     {
+        // Handle list
+        if (NE_HEAD(scan) && NE_IS_CELL(NE_HEAD(scan)))
+        {
+            if (!Transform(N, &NE_HEAD(scan))) return NE_NO;
+        }
         // Handle quote
-        if (NE_HEAD(scan) == NE_QUOTE_VALUE)
+        else if (NE_HEAD(scan) == NE_QUOTE_VALUE)
         {
             NeValue quoteSym = NeCreateSymbol(N, "quote", 5);
             NeValue quoteList = 0;
@@ -4497,6 +4539,108 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
             NE_HEAD(scan) = quoteList;
             NE_TAIL(scan) = NE_TAIL(arg);
             NE_TAIL(arg) = 0;
+        }
+        // Handle lambda
+        else if (NE_HEAD(scan) == NE_LAMBDA_VALUE)
+        {
+            if (0 == last)
+            {
+                return NeError(N, "Lambda defined with no parameters.");
+            }
+
+            if (0 == NE_TAIL(scan))
+            {
+                return NeError(N, "Lambda has no body.");
+            }
+
+            if (!NE_IS_CELL(NE_HEAD(last)))
+            {
+                // The parameter before -> is not a list.  It could be a key-value
+                // that has a value of a list
+                NeValue kv = NE_HEAD(last);
+                if (!(NE_IS_KEYVALUE(kv) && NE_IS_CELL(NeGetValue(kv))))
+                {
+                    return NeError(N, "Invalid parameters for lambda.");
+                }
+            }
+
+            // OK, we've verified the (params...) -> body form.  Let's construct
+            // a (fn (params...) body) expression, while optimising out a sequence.
+            // This means that instead of a (fn (params...) { body... }) form, we
+            // generate (fn (params...) body...) form instead.
+            {
+                // We need to transform ->C0->C1->C2-> to:
+                //
+                //      ->C0->
+                //        |
+                //        V
+                //        C3->C1->C2a->C2b->...  or C3->C0->C2
+                //
+                // Where:
+                //
+                //      C0 = params then later (fn...)
+                //      C1 = ->, then later params
+                //      C2 = body (a, b, ... is the body in a sequence)
+                //      C3 = fn symbol
+                //
+                NeValue C0 = last;
+                NeValue C1 = scan;
+                NeValue C2 = NE_TAIL(C1);
+                NeValue C3 = NeCreateCons(N, NeCreateSymbol(N, "fn", 2), C1);
+                NeValue body = C2;
+                NeValue lastBody = C2;
+                NeValue next = NE_TAIL(C2);
+                NeBool keyValueMode = NE_NO;
+
+                if (NE_IS_KEYVALUE(NE_HEAD(C0)))
+                {
+                    // The lambda is part of a key/value expression.  We should read:
+                    //
+                    //      key: lambda
+                    //
+                    // rather than
+                    //
+                    //      key: params -> body
+                    //
+                    // We need to fix this before conversion.  Currently C0 points to
+                    // the cell that holds the key-value.  It needs to point to the
+                    // parameters, which should point to the lambda arrow.
+                    NeValue params = NeGetValue(NE_HEAD(C0));
+                    NeValue kv = C0;
+                    C0 = NeCreateCons(N, params, C1);
+                    NE_TAIL(NE_HEAD(kv)) = C0;
+                    NE_TAIL(kv) = next;
+                    next = 0;
+                    keyValueMode = NE_YES;
+                }
+
+                if (0 == NE_HEAD(C3)) return NeOutOfMemory(N);
+
+                if (NE_IS_SEQUENCE(NE_HEAD(C2)))
+                {
+                    // We have a (...) -> { ... } form, so we need to make sure that
+                    // the final expression is (fn (...) ...) and not (fn (...) { ... }).
+                    lastBody = body = NE_HEAD(C2);
+                    while (NE_TAIL(lastBody)) lastBody = NE_TAIL(lastBody);
+                }
+
+                // No we reconstruct the cell structure
+                NE_HEAD(C1) = NE_HEAD(C0);      // P -> B  ==>  P P B
+                NE_TAIL(C1) = body;             // P P B  ==> P P B...
+                NE_TAIL(lastBody) = 0;
+                NE_TAIL(C0) = next;             // P ...
+
+                if (keyValueMode)
+                {
+                    // <sym>: (fn P B...) ...
+                    NE_TAIL(NE_HEAD(last)) = C3;
+                    NeRecycleCons(N, C0);
+                }
+                else
+                {
+                    NE_HEAD(C0) = C3;               // ==> ... (fn P B...) ...
+                }
+            }
         }
 
         last = scan;
@@ -4922,6 +5066,9 @@ static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size)
 
     // Step 1 - parse the code into a list of values (called a code-list).
     if (!Read(N, source, str, size, &codeList)) return NE_NO;
+#if NE_DEBUG_MACRO_EXPANSION
+    NeDebugOutValue(N, "EXPANSION", codeList);
+#endif
     NE_ASSERT(NE_IS_CELL(codeList));
 
     // Step 2 - Evaluate the codeList push the result back on.

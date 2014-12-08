@@ -174,3 +174,18 @@ SubString.TooLarge		("Hello" 2 5)												FAIL:Invalid size parameter for str
 Reader.Quote.NoValue	'															FAIL:Invalid quote.
 Reader.Quote.List		'(1 2 3)													(1 2 3)
 Reader.Quote.Symbol		'a															a
+Reader.Quote.SubList	('(1 2 3) 2)												3
+
+#
+# Reader macros
+# Lambdas
+#
+
+Reader.Lambda.Basic		(() -> 42)													42
+Reader.Lambda.Seq		(() -> { a: 6 b: 7 (* a b)})								42
+Reader.Lambda.Params	add:(a b) -> (+ a b) (add 3 6)								9
+Reader.Lambda.ParamSeq	add:(a b) -> { c:a d:b (+ c d) } (add 6 7)					13
+Reader.Lambda.NoParams	-> 42														FAIL:Lambda defined with no parameters.
+Reader.Lambda.NoBody	() ->														FAIL:Lambda has no body.
+Reader.Lambda.BadParams	42 -> 42													FAIL:Invalid parameters for lambda.
+Reader.Lambda.Nothing	->															FAIL:Lambda defined with no parameters.
