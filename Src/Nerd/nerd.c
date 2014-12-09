@@ -9,6 +9,7 @@
 //  BUFFER          Buffer management
 //  CELL            Cell management
 //  CONFIG          Configuration management
+//  CONVERT         Conversion routines
 //  DEBUG           Debugging
 //  ERROR           Error handling
 //  EXEC            Execution
@@ -497,35 +498,6 @@ NeString NeGetTypeName(NeType t)
     };
 
     return typeNames[t];
-}
-
-// We use this to store the output of a value into a temporary buffer.  This is useful if we need to 
-// output it via NeOut since that function uses the scratch buffer.
-//
-static char* AllocDescription(Nerd N, NeValue v)
-{
-    char* str = 0;
-    if (v == G(mSymbolTable))
-    {
-        // The symbol table is unprintable since the keys are not real values
-        str = NE_ALLOC(char, N, 15, NeMemoryType_Temp);
-        CopyMemory(str, "<SYMBOL-TABLE>", 15);
-    }
-    else
-    {
-        NeString desc = NeDescribe(N, v);
-        NeUInt len = StrLen(desc) + 1;
-        str = NE_ALLOC(char, N, len, NeMemoryType_Temp);
-        CopyMemory(str, desc, len);
-    }
-    return str;
-}
-
-// Deallocate the memory allocated with AllocDescription().
-//
-static void FreeDescription(Nerd N, char* str)
-{
-    NE_FREE(N, str, StrLen(str) + 1, NeMemoryType_Temp);
 }
 
 //----------------------------------------------------------------------------------------------------{CONFIG}
@@ -1230,15 +1202,15 @@ static NeBool SaveBuffer(NeBufferRef* buffer)
     return NE_YES;
 }
 
-// Restore previously saved contents.  There cannot have any data written since last commit, otherwise
-// it will fail an assert.
+// Restore previously saved contents and overwrite any uncommited data.
 //
 static void RestoreBuffer(NeBufferRef buffer)
 {
     NeUInt sizeToRestore;
 
     NE_ASSERT(buffer->mStackPointer < buffer->mCapacity);
-    NE_ASSERT(buffer->mCursor == buffer->mCommit);
+
+    buffer->mCursor = buffer->mCommit;
 
     sizeToRestore = *(NeUInt *)&buffer->mData[buffer->mStackPointer];
     buffer->mStackPointer += sizeof(NeUInt);
@@ -1255,20 +1227,25 @@ static void CommitBuffer(NeBufferRef buffer)
     buffer->mCommit = buffer->mCursor;
 }
 
-static NeUInt StartOfNonCommittedData(NeBufferRef buffer)
-{
-    return buffer->mCommit;
-}
-
 //----------------------------------------------------------------------------------------------------{SCRATCH}
 //----------------------------------------------------------------------------------------------------
 // S C R A T C H P A D   M A N A G E M E N T
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-static void ResetScratch(Nerd N)
+// static void ResetScratch(Nerd N)
+// {
+//     ResetBuffer(G(mScratch));
+// }
+
+static void SaveScratch(Nerd N)
 {
-    ResetBuffer(G(mScratch));
+    SaveBuffer(&G(mScratch));
+}
+
+static void RestoreScratch(Nerd N)
+{
+    RestoreBuffer(G(mScratch));
 }
 
 static NeBool FormatScratchArgs(Nerd N, const char* format, va_list args)
@@ -1300,12 +1277,12 @@ static NeBool AddScratchChar(Nerd N, char c)
 
 static const char* GetScratch(Nerd N)
 {
-    return G(mScratch)->mData;
+    return (const char*)BufferGet(G(mScratch), 0, 0);
 }
 
 static NeUInt GetScratchLength(Nerd N)
 {
-    return G(mScratch)->mCursor;
+    return BufferLength(G(mScratch));
 }
 
 //----------------------------------------------------------------------------------------------------{POOL}
@@ -1507,9 +1484,7 @@ static void MarkValue(Nerd N, NeValue v)
 {
 #if NE_DEBUG_GC
     {
-        char* desc = AllocDescription(N, v);
-        NeOut(N, "MARK: %s\n", desc);
-        FreeDescription(N, desc);
+        NeDebugOutValue(N, "MARK", v);
     }
 #endif
     if (NE_TYPEOF(v) < 8)
@@ -1581,25 +1556,19 @@ static void MarkValue(Nerd N, NeValue v)
 static void GcTraceCellPool(Nerd N, void* object)
 {
     NeCellRef cell = (NeCellRef)object;
-    char* desc = AllocDescription(N, NE_BOX(cell, NE_PT_CELL));
-    NeOut(N, "COLLECT: %s\n", desc);
-    FreeDescription(N, desc);
+    NeDebugOutValue(N, "COLLECT", NE_BOX(cell, NE_PT_CELL));
 }
 
 static void GcTraceTablePool(Nerd N, void* object)
 {
     NeTableRef table = (NeTableRef)object;
-    char* desc = AllocDescription(N, NE_BOX(table, NE_PT_TABLE));
-    NeOut(N, "COLLECT: %s\n", desc);
-    FreeDescription(N, desc);
+    NeDebugOutValue(N, "COLLECT", NE_BOX(table, NE_PT_TABLE));
 }
 
 static void GcTraceNumberPool(Nerd N, void* object)
 {
     NeNumberRef number = (NeNumberRef)object;
-    char* desc = AllocDescription(N, NE_BOX(number, NE_PT_NUMBER));
-    NeOut(N, "COLLECT: %s\n", desc);
-    FreeDescription(N, desc);
+    NeDebugOutValue(N, "COLLECT", NE_BOX(number, NE_PT_NUMBER));
 }
 
 // Garbage collect all unused values in memory
@@ -3217,14 +3186,14 @@ static NeToken LexError(NeLexRef L, const char* format, ...)
     va_list args;
     Nerd N = L->mMachine;
 
-    ResetScratch(N);
-
+    SaveScratch(N);
     FormatScratch(N, "%s(%d): READ ERROR: ", L->mSource, L->mLine);
     va_start(args, format);
     FormatScratchArgs(N, format, args);
     va_end(args);
 
     NeError(N, "%s", GetScratch(N));
+    RestoreScratch(N);
 
     return NeToken_Error;
 }
@@ -3575,7 +3544,7 @@ static NeToken NextToken(NeLexRef L)
     if ('"' == c)
     {
         L->mStartToken = L->mCursor;
-        ResetScratch(L->mMachine);
+        SaveScratch(L->mMachine);
 
         for (c = NextChar(L); (0 != c) && ('\n' != c) && ('"' != c); c = NextChar(L))
         {
@@ -3587,6 +3556,7 @@ static NeToken NextToken(NeLexRef L)
                 {
                 case 0:
                     {
+                        RestoreScratch(L->mMachine);
                         NE_LEX_ERROR("Invalid character found in string.");
                     }
 
@@ -3608,10 +3578,13 @@ static NeToken NextToken(NeLexRef L)
 
         if (0 == c || '\n' == c)
         {
+            RestoreScratch(L->mMachine);
             NE_LEX_ERROR("Unterminated string found.");
         }
 
+        // TODO: Copy scratch into a string
         L->mEndToken = L->mCursor - 1;
+        RestoreScratch(L->mMachine);
         NE_LEX_RETURN(NeToken_String);
     }
 
@@ -3680,11 +3653,12 @@ static NeToken NextToken(NeLexRef L)
         }
 
 #if NE_DEBUG_SYMBOL_HASH
-        ResetScratch(L->mMachine);
+        SaveScratch(L->mMachine);
         FormatScratch(L->mMachine, "Hash: \"");
         AddScratchBuffer(L->mMachine, L->mStartToken, L->mEndToken - L->mStartToken);
         FormatScratch(L->mMachine, "\": %x\n", L->mHash);
         NeOut(L->mMachine, GetScratch(L->mMachine));
+        RestoreScratch(L->mMachine);
 #endif
 
         // If we reach this point, we don't have a built-in keyword, so it must be a symbol or user
@@ -3823,6 +3797,280 @@ static NeToken NextToken(NeLexRef L)
     NE_LEX_ERROR("Unknown token found.");
 }
 
+//----------------------------------------------------------------------------------------------------{CONVERT}
+//----------------------------------------------------------------------------------------------------
+// C O N V E R S I O N   R O U T I N E S
+//----------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
+
+NeBool ConvertNumber(Nerd N, NeValue v)
+{
+    NeNumber num;
+
+    if (!NeGetNumber(v, &num)) return NE_NO;
+
+    switch (num.mNumType)
+    {
+    case NeNumberType_Integer:
+        return FormatScratch(N, "%lld", num.mInteger);
+    case NeNumberType_Ratio:
+        return FormatScratch(N, "%lld/%lld", num.mNumerator, num.mDenominator);
+    case NeNumberType_Float:
+        return FormatScratch(N, "%g", num.mFloat);
+    }
+
+    return NE_NO;
+}
+
+NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
+{
+    switch (NE_TYPEOF(v))
+    {
+    case NE_PT_CELL:
+        {
+            if (0 == v)
+            {
+                if (convertMode != NE_CONVERT_MODE_NORMAL)
+                {
+                    return FormatScratch(N, "nil");
+                }
+                else
+                {
+                    return NE_YES;
+                }
+            }
+
+            // (1 2 3):
+            //      NORMAL:     123
+            //      REPL:       (1 2 3)
+            //      CODE:       (1 2 3)
+            //
+            if (convertMode != NE_CONVERT_MODE_NORMAL)
+            {
+                if (!AddScratchChar(N, '(')) return NE_NO;
+            }
+            while (v)
+            {
+                if (!ConvertToString(N, NE_HEAD(v), convertMode)) return NE_NO;
+                v = NE_TAIL(v);
+                if ((convertMode != NE_CONVERT_MODE_NORMAL) && v)
+                {
+                    if (!AddScratchChar(N, ' ')) return NE_NO;
+                }
+            }
+            if (convertMode != NE_CONVERT_MODE_NORMAL)
+            {
+                if (!AddScratchChar(N, ')')) return NE_NO;
+            }
+        }
+        break;
+
+    case NE_PT_KEYVALUE:
+        {
+            if (!ConvertToString(N, NE_HEAD(v), convertMode)) return NE_NO;
+            if (!FormatScratch(N, ": ")) return NE_NO;
+            if (!ConvertToString(N, NE_TAIL(v), convertMode)) return NE_NO;
+        }
+        break;
+
+    case NE_PT_FUNCTION:
+        {
+            return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "<function:%p>" : "", NE_CAST(v, void));
+        }
+        break;
+
+    case NE_PT_TABLE:
+        {
+            NeTableRef table = NE_CAST(v, NeTable);
+            NeUInt numNodes = table->mNodes ? 1 << table->mLogNumNodes : 0;
+            NeNodeRef node = table->mNodes;
+            NeUInt i = 0;
+            NeBool printSpace = NE_NO;
+
+            if (!FormatScratch(N, "[")) return NE_NO;
+            for (; i < numNodes; ++i, ++node)
+            {
+                NeNodeRef node = &table->mNodes[i];
+
+                if (node->mKey != 0)
+                {
+                    if (printSpace)
+                    {
+                        if (!FormatScratch(N, " ")) return NE_NO;
+                    }
+                    else
+                    {
+                        printSpace = NE_YES;
+                    }
+
+                    if (!ConvertToString(N, node->mKey, convertMode)) return NE_NO;
+                    if (!FormatScratch(N, ": ")) return NE_NO;
+                    if (!ConvertToString(N, node->mValue, convertMode)) return NE_NO;
+                }
+            }
+
+            return FormatScratch(N, "]");
+        }
+        break;
+
+    case NE_PT_STRING:
+        if (convertMode != NE_CONVERT_MODE_NORMAL)
+        {
+            NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
+            char* str = strInfo->mString;
+
+            // In non-normal mode we show the quotes and the backslashed characters.
+            if (!AddScratchChar(N, '"')) return NE_NO;
+            for (; *str != 0; ++str)
+            {
+                char c = *str;
+                if (c < 32)
+                {
+                    // TODO: Show backslashed characters and octal values if necessary
+                    if (!AddScratchChar(N, c)) return NE_NO;
+                }
+                else
+                {
+                    if (!AddScratchChar(N, c)) return NE_NO;
+                }
+            } // for
+            if (!AddScratchChar(N, '"')) return NE_NO;
+            break;
+        }
+
+        // Purposefully flow into next case statement...
+
+    case NE_PT_SYMBOL:
+    {
+        NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
+        return FormatScratch(N, "%s", strInfo->mString);
+    }
+
+    case NE_PT_KEYWORD:
+    {
+        NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
+        return FormatScratch(N, ":%s", strInfo->mString);
+    }
+
+    case NE_PT_NUMBER:
+        return ConvertNumber(N, v);
+
+    case NE_PT_EXTENDED:
+        switch (NE_EXTENDED_TYPEOF(v))
+        {
+        case NE_XT_CONSTANT:
+            {
+                switch (NE_EXTENDED_VALUE(v))
+                {
+                case NE_C_UNDEFINED:    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "undefined" : "");
+                case NE_C_QUOTE:        return FormatScratch(N, "'");
+                case NE_C_LAMBDA:       return FormatScratch(N, "->");
+                }
+            }
+            return FormatScratch(N, "<undefined>");
+            
+        case NE_XT_SHORTINT:
+        case NE_XT_SHORTFLOAT:
+        case NE_XT_SHORTRATIO:
+            return ConvertNumber(N, v);
+
+        case NE_XT_BOOLEAN:         return FormatScratch(N, NE_EXTENDED_VALUE(v) ? "yes" : "no");
+
+        case NE_XT_NATIVE:		    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "<native:%u>" : "", NE_EXTENDED_VALUE(v));
+
+        case NE_XT_CHARACTER:
+            {
+                NeChar c = (NeChar)NE_EXTENDED_VALUE(v);
+                if (NE_CONVERT_MODE_NORMAL != convertMode)
+                {
+                    if (!AddScratchChar(N, '\\')) return NE_NO;
+
+                    // Check for long name version
+                    if (c <= ' ' || c > 126)
+                    {
+                        int i = 0;
+                        for (i = 0; gCharmap[i].name; ++i)
+                        {
+                            if (c == gCharmap[i].ch)
+                            {
+                                return FormatScratch(N, "%s", gCharmap[i].name + 2);
+                            }
+                        }
+                        if (!gCharmap[i].name)
+                        {
+                            // Unknown character, so show hex version
+                            return FormatScratch(N, "#%d", (int)c);
+                        }
+                    }
+                }
+
+                if (NE_IS_WHITESPACE(c) ||
+                    '\r' == c ||
+                    '\b' == c ||
+                    '\033' == c ||
+                    (c > ' ' && c < 127))
+                {
+                    return AddScratchChar(N, c);
+                }
+                else
+                {
+                    return AddScratchChar(N, '?');
+                }
+            }
+
+        default:;
+            // Flows into outer switch default!
+            //		|
+            //		|
+            //		V
+        }
+
+    default:
+        if (convertMode == NE_CONVERT_MODE_CODE)
+        {
+            return FormatScratch(N, "nil");
+        }
+        else
+        {
+            return FormatScratch(N, "<Invalid Value>");
+        }
+    }
+
+    return NE_YES;
+}
+
+// We use this to store the output of a value into a temporary buffer.  This is useful if we need to 
+// output it via NeOut since that function uses the scratch buffer.
+//
+static char* AllocDescription(Nerd N, NeValue v)
+{
+    char* str = 0;
+    if (v == G(mSymbolTable))
+    {
+        // The symbol table is unprintable since the keys are not real values
+        str = NE_ALLOC(char, N, 15, NeMemoryType_Temp);
+        CopyMemory(str, "<SYMBOL-TABLE>", 15);
+    }
+    else
+    {
+        SaveScratch(N);
+        ConvertToString(N, v, NE_CONVERT_MODE_REPL);
+        NeString desc = GetScratch(N);
+        NeUInt len = GetScratchLength(N) + 1;
+        str = NE_ALLOC(char, N, len, NeMemoryType_Temp);
+        CopyMemory(str, desc, len);
+        RestoreScratch(N);
+    }
+    return str;
+}
+
+// Deallocate the memory allocated with AllocDescription().
+//
+static void FreeDescription(Nerd N, char* str)
+{
+    NE_FREE(N, str, StrLen(str) + 1, NeMemoryType_Temp);
+}
+
 //----------------------------------------------------------------------------------------------------{STACK}
 //----------------------------------------------------------------------------------------------------
 //	U S E R   S T A C K   M A N A G E M E N T
@@ -3953,241 +4201,6 @@ static NeValue* GetStackElementFromIndex(Nerd N, NeInt stackIndex)
     return &N->mStack[index];
 }
 
-NeBool ConvertNumber(Nerd N, NeValue v)
-{
-    NeNumber num;
-
-    if (!NeGetNumber(v, &num)) return NE_NO;
-
-    switch (num.mNumType)
-    {
-    case NeNumberType_Integer:
-        return FormatScratch(N, "%lld", num.mInteger);
-    case NeNumberType_Ratio:
-        return FormatScratch(N, "%lld/%lld", num.mNumerator, num.mDenominator);
-    case NeNumberType_Float:
-        return FormatScratch(N, "%g", num.mFloat);
-    }
-
-    return NE_NO;
-}
-
-NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
-{
-    switch (NE_TYPEOF(v))
-    {
-    case NE_PT_CELL:
-        {
-            if (0 == v)
-            {
-                if (convertMode != NE_CONVERT_MODE_NORMAL)
-                {
-                    return FormatScratch(N, "nil");
-                }
-                else
-                {
-                    return NE_YES;
-                }
-            }
-
-            // (1 2 3):
-            //      NORMAL:     123
-            //      REPL:       (1 2 3)
-            //      CODE:       (1 2 3)
-            //
-            if (convertMode != NE_CONVERT_MODE_NORMAL)
-            {
-                if (!AddScratchChar(N, '(')) return NE_NO;
-            }
-            while (v)
-            {
-                if (!ConvertToString(N, NE_HEAD(v), convertMode)) return NE_NO;
-                v = NE_TAIL(v);
-                if ((convertMode != NE_CONVERT_MODE_NORMAL) && v)
-                {
-                    if (!AddScratchChar(N, ' ')) return NE_NO;
-                }
-            }
-            if (convertMode != NE_CONVERT_MODE_NORMAL)
-            {
-                if (!AddScratchChar(N, ')')) return NE_NO;
-            }
-        }
-        break;
-
-    case NE_PT_KEYVALUE:
-        {
-            if (!ConvertToString(N, NE_HEAD(v), convertMode)) return NE_NO;
-            if (!FormatScratch(N, ": ")) return NE_NO;
-            if (!ConvertToString(N, NE_TAIL(v), convertMode)) return NE_NO;
-        }
-        break;
-
-    case NE_PT_FUNCTION:
-        {
-            return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "<function:%p>" : "", NE_CAST(v, void));
-        }
-        break;
-
-    case NE_PT_TABLE:
-        {
-            NeTableRef table = NE_CAST(v, NeTable);
-            NeUInt numNodes = table->mNodes ? 1 << table->mLogNumNodes : 0;
-            NeNodeRef node = table->mNodes;
-            NeUInt i = 0;
-            NeBool printSpace = NE_NO;
-
-            if (!FormatScratch(N, "[")) return NE_NO;
-            for (; i < numNodes; ++i, ++node)
-            {
-                NeNodeRef node = &table->mNodes[i];
-
-                if (node->mKey != 0)
-                {
-                    if (printSpace)
-                    {
-                        if (!FormatScratch(N, " ")) return NE_NO;
-                    }
-                    else
-                    {
-                        printSpace = NE_YES;
-                    }
-
-                    if (!ConvertToString(N, node->mKey, convertMode)) return NE_NO;
-                    if (!FormatScratch(N, ": ")) return NE_NO;
-                    if (!ConvertToString(N, node->mValue, convertMode)) return NE_NO;
-                }
-            }
-
-            return FormatScratch(N, "]");
-        }
-        break;
-
-    case NE_PT_SYMBOL:
-        {
-            NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
-            return FormatScratch(N, "%s", strInfo->mString);
-        }
-
-    case NE_PT_KEYWORD:
-        {
-            NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
-            return FormatScratch(N, ":%s", strInfo->mString);
-        }
-
-    case NE_PT_STRING:
-        if (convertMode != NE_CONVERT_MODE_NORMAL)
-        {
-            NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
-            char* str = strInfo->mString;
-
-            // In non-normal mode we show the quotes and the backslashed characters.
-            if (!AddScratchChar(N, '"')) return NE_NO;
-            for (; *str != 0; ++str)
-            {
-                char c = *str;
-                if (c < 32)
-                {
-                    // TODO: Show backslashed characters and octal values if necessary
-                    if (!AddScratchChar(N, c)) return NE_NO;
-                }
-                else
-                {
-                    if (!AddScratchChar(N, c)) return NE_NO;
-                }
-            } // for
-            if (!AddScratchChar(N, '"')) return NE_NO;
-            break;
-        }
-
-        // Purposefully flow into next case statement...
-
-    case NE_PT_NUMBER:
-        return ConvertNumber(N, v);
-
-    case NE_PT_EXTENDED:
-        switch (NE_EXTENDED_TYPEOF(v))
-        {
-        case NE_XT_CONSTANT:
-            {
-                switch (NE_EXTENDED_VALUE(v))
-                {
-                case NE_C_UNDEFINED:    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "undefined" : "");
-                case NE_C_QUOTE:        return FormatScratch(N, "'");
-                case NE_C_LAMBDA:       return FormatScratch(N, "->");
-                }
-            }
-            return FormatScratch(N, "<undefined>");
-            
-        case NE_XT_SHORTINT:
-        case NE_XT_SHORTFLOAT:
-        case NE_XT_SHORTRATIO:
-            return ConvertNumber(N, v);
-
-        case NE_XT_BOOLEAN:         return FormatScratch(N, NE_EXTENDED_VALUE(v) ? "yes" : "no");
-
-        case NE_XT_NATIVE:		    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "<native:%u>" : "", NE_EXTENDED_VALUE(v));
-
-        case NE_XT_CHARACTER:
-            {
-                NeChar c = (NeChar)NE_EXTENDED_VALUE(v);
-                if (NE_CONVERT_MODE_NORMAL != convertMode)
-                {
-                    if (!AddScratchChar(N, '\\')) return NE_NO;
-
-                    // Check for long name version
-                    if (c <= ' ' || c > 126)
-                    {
-                        int i = 0;
-                        for (i = 0; gCharmap[i].name; ++i)
-                        {
-                            if (c == gCharmap[i].ch)
-                            {
-                                return FormatScratch(N, "%s", gCharmap[i].name + 2);
-                            }
-                        }
-                        if (!gCharmap[i].name)
-                        {
-                            // Unknown character, so show hex version
-                            return FormatScratch(N, "#%d", (int)c);
-                        }
-                    }
-                }
-
-                if (NE_IS_WHITESPACE(c) ||
-                    '\r' == c ||
-                    '\b' == c ||
-                    '\033' == c ||
-                    (c > ' ' && c < 127))
-                {
-                    return AddScratchChar(N, c);
-                }
-                else
-                {
-                    return AddScratchChar(N, '?');
-                }
-            }
-
-        default:;
-            // Flows into outer switch default!
-            //		|
-            //		|
-            //		V
-        }
-
-    default:
-        if (convertMode == NE_CONVERT_MODE_CODE)
-        {
-            return FormatScratch(N, "nil");
-        }
-        else
-        {
-            return FormatScratch(N, "<Invalid Value>");
-        }
-    }
-
-    return NE_YES;
-}
 
 NeBool NeToString(Nerd N, NeInt index, int convertMode)
 {
@@ -4197,12 +4210,17 @@ NeBool NeToString(Nerd N, NeInt index, int convertMode)
     if (slot)
     {
         v = *slot;
-        ResetScratch(N);
+        SaveScratch(N);
 
-        if (!ConvertToString(N, v, convertMode)) return NE_NO;
+        if (!ConvertToString(N, v, convertMode))
+        {
+            RestoreScratch(N);
+            return NE_NO;
+        }
 
         // Scratch contains the string now
         v = NeCreateString(N, GetScratch(N), GetScratchLength(N));
+        RestoreScratch(N);
         if (!v) return NE_NO;
 
         *slot = v;
@@ -4212,14 +4230,6 @@ NeBool NeToString(Nerd N, NeInt index, int convertMode)
     {
         return NE_NO;
     }
-}
-
-NeString NeDescribe(Nerd N, NeValue v)
-{
-    ResetScratch(N);
-    if (!ConvertToString(N, v, NE_CONVERT_MODE_REPL)) return 0;
-    if (!AddScratchChar(N, 0)) return 0;
-    return GetScratch(N);
 }
 
 NeBool NeDuplicate(Nerd N, NeInt index)
@@ -4238,13 +4248,14 @@ void NeOutArgs(Nerd N, const char* format, va_list args)
 {
     NeOutputCallback output = N->mGlobalSession->mConfig.mCallbacks.mOutputCallback;
 
-    ResetScratch(N);
+    SaveScratch(N);
     FormatScratchArgs(N, format, args);
 
     if (output)
     {
         output(N, GetScratch(N));
     }
+    RestoreScratch(N);
 }
 
 void NeOut(Nerd N, const char* format, ...)
@@ -4258,9 +4269,9 @@ void NeOut(Nerd N, const char* format, ...)
 
 static void NeDebugOutValue(Nerd N, const char* name, NeValue value)
 {
-    NePushValue(N, value);
-    NeToString(N, -1, NE_CONVERT_MODE_REPL);
-    NeOut(N, "%s: %s\n", name, NePopString(N));
+    char* str = AllocDescription(N, value);
+    NeOut(N, "%s: %s\n", name, str);
+    FreeDescription(N, str);
 }
 
 //----------------------------------------------------------------------------------------------------{ERROR}
@@ -4271,9 +4282,10 @@ static void NeDebugOutValue(Nerd N, const char* name, NeValue value)
 
 static void ErrorArgs(Nerd N, const char* format, va_list args)
 {
-    ResetScratch(N);
+    SaveScratch(N);
     FormatScratchArgs(N, format, args);
     NePushString(N, GetScratch(N), GetScratchLength(N));
+    RestoreScratch(N);
 }
 
 NeBool NeError(Nerd N, const char* format, ...)
@@ -5331,6 +5343,29 @@ static NeBool N_Mod(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     return NE_YES;
 }
 
+static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    SaveScratch(N);
+
+    while (args)
+    {
+        NeValue elem;
+
+        if (!NeEval(N, NE_HEAD(args), env, &elem) ||
+            !ConvertToString(N, elem, NE_CONVERT_MODE_NORMAL))
+        {
+            RestoreScratch(N);
+            return NE_NO;
+        }
+
+        args = NE_TAIL(args);
+    }
+
+    *result = NeCreateString(N, GetScratch(N), GetScratchLength(N));
+    RestoreScratch(N);
+    return *result != 0;
+}
+
 //----------------------------------------------------------------------------------------------------
 // Standard natives registration
 //----------------------------------------------------------------------------------------------------
@@ -5348,6 +5383,9 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("*", N_Multiply)
         NE_NATIVE("/", N_Divide)
         NE_NATIVE("%", N_Mod)
+
+        // Strings
+        NE_NATIVE("str", N_Str)
 
         // The end!
         NE_END_NATIVES

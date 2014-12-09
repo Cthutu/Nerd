@@ -567,10 +567,6 @@ NeBool NeCheckNumArgs(Nerd N, NeValue args, NeUInt count, NeBool exactCount);
 //
 #define NE_CHECK_ARG_TYPE(N, arg, index, type) if (!NeCheckArgType((N), (arg), (index), (type))) return NE_NO
 
-// Return a temporary string describing a value.
-//
-NeString NeDescribe(Nerd N, NeValue v);
-
 //----------------------------------------------------------------------------------------------------
 // Debug routines
 //----------------------------------------------------------------------------------------------------

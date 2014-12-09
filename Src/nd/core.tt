@@ -189,3 +189,17 @@ Reader.Lambda.NoParams	-> 42														FAIL:Lambda defined with no parameters
 Reader.Lambda.NoBody	() ->														FAIL:Lambda has no body.
 Reader.Lambda.BadParams	42 -> 42													FAIL:Invalid parameters for lambda.
 Reader.Lambda.Nothing	->															FAIL:Lambda defined with no parameters.
+
+#
+# Builtins
+#
+
+BI.Str.String			(str "Foo")													"Foo"
+BI.Str.Integer			(str 42)													"42"
+BI.Str.Float			(str 3.14)													"3.14"
+BI.Str.Ratio			(str 1/3)													"1/3"
+BI.Str.Yes				(str yes)													"yes"
+BI.Str.No				(str no)													"no"
+BI.Str.Mixed			(str "Age = " (- (* 6 7) 1))								"Age = 41"
+BI.Str.Recurse			(str "Foo:" (str "Bar"))									"Foo:Bar"
+
