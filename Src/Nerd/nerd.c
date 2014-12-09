@@ -250,7 +250,7 @@ typedef struct _NeGlobalSession
 }
 NeGlobalSession, *NeGlobalSessionRef;
 
-typedef struct _Nerd
+struct _Nerd
 {
     NeGlobalSessionRef      mGlobalSession;     // Pointer to shared global session.
 
@@ -797,9 +797,12 @@ Nerd NeOpen(NeConfigRef config)
 
     // Check the sizes of the data types
     if ((sizeof(NeInt) != 8) ||
-        (sizeof(NeUInt) != 8))
+        (sizeof(NeUInt) != 8) ||
+        (sizeof(NeUInt8) != 1) ||
+        (sizeof(NeUInt16) != 2) ||
+        (sizeof(NeUInt32) != 4))
     {
-        gNeOpenError = "Size of NeInt is not 64-bit on this platform";
+        gNeOpenError = "Size of integer types are not correct";
         goto error;
     }
 
@@ -2851,7 +2854,7 @@ NeNumberType NeGetNumberType(NeValue value)
     return n.mNumType;
 }
 
-static NeValue NeAddNumbers(Nerd N, NeValue a, NeValue b)
+NeValue NeAddNumbers(Nerd N, NeValue a, NeValue b)
 {
     NeNumber aa, bb, result;
 
@@ -2863,7 +2866,7 @@ static NeValue NeAddNumbers(Nerd N, NeValue a, NeValue b)
     return NeSetNumber(N, 0, &result);
 }
 
-static NeValue NeSubtractNumbers(Nerd N, NeValue a, NeValue b)
+NeValue NeSubtractNumbers(Nerd N, NeValue a, NeValue b)
 {
     NeNumber aa, bb, result;
 
@@ -2875,7 +2878,7 @@ static NeValue NeSubtractNumbers(Nerd N, NeValue a, NeValue b)
     return NeSetNumber(N, 0, &result);
 }
 
-static NeValue NeMultiplyNumbers(Nerd N, NeValue a, NeValue b)
+NeValue NeMultiplyNumbers(Nerd N, NeValue a, NeValue b)
 {
     NeNumber aa, bb, result;
 
@@ -2887,7 +2890,7 @@ static NeValue NeMultiplyNumbers(Nerd N, NeValue a, NeValue b)
     return NeSetNumber(N, 0, &result);
 }
 
-static NeValue NeDivideNumbers(Nerd N, NeValue a, NeValue b)
+NeValue NeDivideNumbers(Nerd N, NeValue a, NeValue b)
 {
     NeNumber aa, bb, result;
 
@@ -3352,14 +3355,14 @@ static NeToken NextToken(NeLexRef L)
                 break;
 
             case 4:     // Digits 0-9 in float part
-            {
-                            while ((c >= '0') && (c <= '9'))
-                            {
-                                c = NextChar(L);
-                            }
-                            if (c == 'e' || c == 'E') state = 7;
-                            else state = 100;
-            }
+                {
+                    while ((c >= '0') && (c <= '9'))
+                    {
+                        c = NextChar(L);
+                    }
+                    if (c == 'e' || c == 'E') state = 7;
+                    else state = 100;
+                }
                 break;
 
             case 5:     // '0' - decide whether we are octal or hexadecimal
@@ -4267,7 +4270,7 @@ void NeOut(Nerd N, const char* format, ...)
     va_end(args);
 }
 
-static void NeDebugOutValue(Nerd N, const char* name, NeValue value)
+void NeDebugOutValue(Nerd N, const char* name, NeValue value)
 {
     char* str = AllocDescription(N, value);
     NeOut(N, "%s: %s\n", name, str);
@@ -4749,7 +4752,6 @@ NeValue GetFunctionBody(NeValue func)
 static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, NeValue argNames, NeValue argValues, NE_OUT NeValueRef execEnv)
 {
     NeTableRef env;
-    NeTableRef funcEnvTable = NE_CAST(funcEnv, NeTable);
     *execEnv = NeCloneTable(N, funcEnv);
     env = NE_CAST(*execEnv, NeTable);
 
@@ -5054,7 +5056,7 @@ static NeBool EvaluateList(Nerd N, NeValue codeList, NeTableRef environment, NE_
     return NE_YES;
 }
 
-static NeBool NeEval(Nerd N, NeValue expression, NeValue environment, NE_OUT NeValueRef result)
+NeBool NeEval(Nerd N, NeValue expression, NeValue environment, NE_OUT NeValueRef result)
 {
     NeTableRef env = NE_CAST(environment ? environment : G(mGlobalEnv), NeTable);
     return Evaluate(N, expression, env, result);

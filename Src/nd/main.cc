@@ -17,7 +17,7 @@
 #endif
 
 // Enables the unit testing if set to 1
-#define NE_TEST			1
+#define NE_TEST			0
 #define NE_BREAK_ALLOC  0
 
 #if NE_TEST
@@ -372,11 +372,15 @@ int main(int argc, const char** argv)
         {
             fprintf(stdout, "Nerd Shell (V" NE_VERSION_STRING ")\n");
             fprintf(stdout, NE_COPYRIGHT_STRING "\n\n");
+#if _WIN32
             fprintf(stdout, "Type CTRL-C or enter ,q to quit.\n\n");
+#else
+            fprintf(stdout, "Type CTRL-D or enter ,q to quit.\n\n");
+#endif
 
             for (;;)
             {
-                char* input;
+                char* input = 0;
                 size_t size = 0;
                 char* nspace = 0;
                 ssize_t result = 0;
@@ -384,7 +388,7 @@ int main(int argc, const char** argv)
                 fprintf(stdout, "%s> ", nspace ? nspace : "/");
 
                 result = getline(&input, &size, stdin);
-                if (*input == ',')
+                if ((-1 != result) && (*input == ','))
                 {
                     switch (input[1])
                     {

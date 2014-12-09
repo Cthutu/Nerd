@@ -19,6 +19,7 @@ extern "C"
 #include "nerd.h"
 #include <stdarg.h>
 #include <assert.h>
+#include <stdint.h>
 
 //----------------------------------------------------------------------------------------------------
 // Macros
@@ -228,12 +229,12 @@ NeType;
 #define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? 1 : 0))
 
 // Values of guaranteed bit size - checked by NeOpen()
-typedef char NeInt8;
-typedef short NeInt16;
-typedef long NeInt32;
-typedef unsigned char NeUInt8;
-typedef unsigned short NeUInt16;
-typedef unsigned long NeUInt32;
+typedef int8_t NeInt8;
+typedef int16_t NeInt16;
+typedef int32_t NeInt32;
+typedef uint8_t NeUInt8;
+typedef uint16_t NeUInt16;
+typedef uint32_t NeUInt32;
 
 //----------------------------------------------------------------------------------------------------
 // Cell type and macros
