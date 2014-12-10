@@ -74,7 +74,7 @@ extern "C"
 //  1001    9       Symbol			L		Points to a NeStringInfo structure.
 //  1010    A       String			L		Points to a NeStringInfo structure.
 //  1011    B       Keyword         L       Points to a NeStringInfo structure.
-//  1100    C       ?
+//  1100    C       Block           N       Points to a NeBlock structure.
 //  1101    D       ?
 //  1110    E       Number			L		Points to a NeNumber structure.
 //
@@ -151,6 +151,8 @@ typedef enum _NeType
     NeType_Table,
     NeType_Symbol,
     NeType_String,
+    NeType_Keyword,
+    NeType_Block,
     NeType_Number,
 
     // Extended
@@ -176,6 +178,7 @@ NeType;
 #define NE_PT_SYMBOL        9
 #define NE_PT_STRING		10
 #define NE_PT_KEYWORD       11
+#define NE_PT_BLOCK         12
 #define NE_PT_NUMBER		14
 #define NE_PT_EXTENDED		15
 
@@ -204,6 +207,7 @@ NeType;
 #define NE_IS_SYMBOL(v)                 NE_IS_PRIMARY_TYPE((v), NE_PT_SYMBOL)
 #define NE_IS_STRING(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_STRING)
 #define NE_IS_KEYWORD(v)                NE_IS_PRIMARY_TYPE((v), NE_PT_KEYWORD)
+#define NE_IS_BLOCK(v)                  NE_IS_PRIMARY_TYPE((v), NE_PT_BLOCK)
 #define NE_IS_NUMBER(v)					(NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) || NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTINT) || \
                                          NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTFLOAT) || NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTRATIO))
 #define NE_IS_INTEGER(v)                ((NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) && (NE_CAST((v), NeNumber)->mNumType == NeNumberType_Integer)) || \
@@ -469,7 +473,23 @@ NeValue NeDivideNumbers(Nerd N, NeValue a, NeValue b);
 // Create a closure with the given arguments, body and environment.
 //
 NeValue NeCreateClosure(Nerd N, NeValue args, NeValue body, NeValue environment);
+    
+//----------------------------------------------------------------------------------------------------
+// Reading
+//----------------------------------------------------------------------------------------------------
 
+// Read a string in a generate a sequence
+//
+NeBool NeRead(Nerd N, const char* source, const char* code, NeUInt size, NeValueRef result);
+    
+//----------------------------------------------------------------------------------------------------
+// Compilation
+//----------------------------------------------------------------------------------------------------
+
+// Compile a sequence into a block.
+//
+NeBool NeCompile(Nerd N, NeValue sequence, NeValueRef blockValue);
+    
 //----------------------------------------------------------------------------------------------------
 // Evaluation
 //----------------------------------------------------------------------------------------------------

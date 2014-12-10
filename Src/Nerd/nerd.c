@@ -6,6 +6,7 @@
 // Index of sections:   (Incrementally search for '{' + name)
 //
 //  _SESSION        Nerd structure
+//  BLOCK           Block management
 //  BUFFER          Buffer management
 //  CELL            Cell management
 //  CONFIG          Configuration management
@@ -176,6 +177,18 @@ typedef struct _NeBuffer
 NeBuffer, *NeBufferRef;
 
 //----------------------------------------------------------------------------------------------------
+// NeBlock
+// A NeBlock is used to hold an executable array of values by the Nerd Block VM (NBVM).
+//----------------------------------------------------------------------------------------------------
+
+typedef struct _NeBlock
+{
+    NeGcObject          mGcObj;     // Blocks are garbage collected
+    NeBuffer            mBlock;     // Block of values
+}
+NeBlock, *NeBlockRef;
+
+//----------------------------------------------------------------------------------------------------
 // NeMemoryInfo
 // When NE_DEBUG_MEMORY is defined to be 1, this structure is used before each allocation to
 // store information about the allocations.  NE_DEBUG_MEMORY should be only used for development
@@ -237,6 +250,7 @@ typedef struct _NeGlobalSession
     NePool                  mCellsPool;         // Contains all instances of NeCell.
     NePool                  mTablesPool;        // Contains all instances of NeTable.
     NePool					mNumbersPool;		// Contains all instances of NeNumber.
+    NePool                  mBlocksPool;        // Contains all instances of NeBlock.
 
     // Symbols
     NeValue                 mSymbolTable;       // Table used for fast-look up of symbols.
@@ -427,8 +441,8 @@ NeType NeGetType(NeValue v)
         NeType_Table,
         NeType_Symbol,
         NeType_String,
-        NeType_Symbol,
-        NeType_Undefined,
+        NeType_Keyword,
+        NeType_Block,
         NeType_Undefined,
         NeType_Number,
     };
@@ -488,6 +502,8 @@ NeString NeGetTypeName(NeType t)
         "table",
         "symbol",
         "string",
+        "keyword",
+        "block",
         "number",
         "undefined",
         "boolean",
@@ -775,6 +791,7 @@ static void DestroyPool(NePoolRef pool);
 static NeBufferRef CreateBuffer(Nerd N, NeUInt startSize);
 static void InitTable(Nerd N, NeTableRef table, NeTableRef parent);
 static void DestroyTableElement(Nerd N, void* tableObject);
+static void DestroyBlockElement(Nerd N, void* blockObject);
 static void DestroyBuffer(NeBufferRef buffer);
 static NeBool RegisterCoreNatives(Nerd N);
 
@@ -846,6 +863,7 @@ Nerd NeOpen(NeConfigRef config)
     CreatePool(&G(mCellsPool), N, sizeof(NeCell), NE_DEFAULT_HEAP_SIZE, 0);
     CreatePool(&G(mTablesPool), N, sizeof(NeTable), NE_DEFAULT_HEAP_SIZE, &DestroyTableElement);
     CreatePool(&G(mNumbersPool), N, sizeof(NeNumber), NE_DEFAULT_HEAP_SIZE, 0);
+    CreatePool(&G(mBlocksPool), N, sizeof(NeBlock), NE_DEFAULT_HEAP_SIZE, &DestroyBlockElement);
 
     // Intialise the symbol table
     G(mSymbolTable) = NeCloneTable(N, 0);
@@ -888,6 +906,7 @@ void NeClose(Nerd N)
         DestroyPool(&G(mCellsPool));
         DestroyPool(&G(mTablesPool));
         DestroyPool(&G(mNumbersPool));
+        DestroyPool(&G(mBlocksPool));
 
         // Free the strings
         while (G(mFirstString))
@@ -1574,6 +1593,12 @@ static void GcTraceNumberPool(Nerd N, void* object)
     NeDebugOutValue(N, "COLLECT", NE_BOX(number, NE_PT_NUMBER));
 }
 
+static void GcTraceBlockPool(Nerd N, void* object)
+{
+    NeBlockRef block = (NeBlockRef)object;
+    NeDebugOutValue(N, "COLLECT", NE_BOX(block, NE_PT_BLOCK));
+}
+
 // Garbage collect all unused values in memory
 //
 void NeGarbageCollect(Nerd N)
@@ -1605,6 +1630,7 @@ void NeGarbageCollect(Nerd N)
     PoolCollect(&G(mCellsPool), &GcTraceCellPool);
     PoolCollect(&G(mTablesPool), &GcTraceTablePool);
     PoolCollect(&G(mNumbersPool), &GcTraceNumberPool);
+    PoolCollect(&G(mBlocksPool), &GcTraceBlockPool);
 
     // Step 2 - Release resources that are not marked
     // Step 2.b - the strings
@@ -2942,6 +2968,18 @@ NeValue NeCreateClosure(Nerd N, NeValue args, NeValue body, NeValue environment)
     }
 
     return NE_BOX(funcCell, NE_PT_FUNCTION);
+}
+
+//----------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
+// B L O C K   M A N A G E M E N T
+//----------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
+
+void DestroyBlockElement(Nerd N, void* blockObject)
+{
+    NeBlockRef block = (NeBlockRef)blockObject;
+    DestroyBuffer(&block->mBlock);
 }
 
 //----------------------------------------------------------------------------------------------------{LEX}
@@ -4668,7 +4706,7 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
 // Read a buffer and convert it into a code-list (a list of values).  The most common use of this
 // function is to prepare code for the compiler, but you can use this to parse data as well.
 //
-static NeBool Read(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValue* codeList)
+NeBool NeRead(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValue* codeList)
 {
     NeBool success;
     NeLex lex;
@@ -5079,7 +5117,7 @@ static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size)
     if (-1 == size) size = StrLen(str) + 1;
 
     // Step 1 - parse the code into a list of values (called a code-list).
-    if (!Read(N, source, str, size, &codeList)) return NE_NO;
+    if (!NeRead(N, source, str, size, &codeList)) return NE_NO;
 #if NE_DEBUG_MACRO_EXPANSION
     NeDebugOutValue(N, "EXPANSION", codeList);
 #endif
