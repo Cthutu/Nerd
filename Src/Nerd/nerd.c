@@ -5536,6 +5536,99 @@ static NeBool N_LessThan(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef re
     return NE_YES;
 }
 
+static NeBool N_LessThanEqual(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue current = 0;
+    
+    NE_NEED_NUM_ARGS(N, args, 2);
+    NE_EVAL(N, NE_HEAD(args), env, current);
+    args = NE_TAIL(args);
+    *result = NE_BOOLEAN_VALUE(NE_YES);
+    
+    while (args)
+    {
+        NeValue v;
+        NeBool compare;
+        
+        NE_EVAL(N, NE_HEAD(args), env, v);
+        if (!NeLessThan(N, current, v, &compare)) return NE_NO;
+        if (!compare)
+        {
+            if (!NeEqual(current, v))
+            {
+                *result = NE_BOOLEAN_VALUE(NE_NO);
+                break;
+            }
+        }
+        
+        current = v;
+        args = NE_TAIL(args);
+    }
+    
+    return NE_YES;
+}
+
+static NeBool N_GreaterThan(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue current = 0;
+    
+    NE_NEED_NUM_ARGS(N, args, 2);
+    NE_EVAL(N, NE_HEAD(args), env, current);
+    args = NE_TAIL(args);
+    *result = NE_BOOLEAN_VALUE(NE_YES);
+    
+    while (args)
+    {
+        NeValue v;
+        NeBool compare;
+        
+        NE_EVAL(N, NE_HEAD(args), env, v);
+        if (!NeLessThan(N, v, current, &compare)) return NE_NO;
+        if (!compare)
+        {
+            *result = NE_BOOLEAN_VALUE(NE_NO);
+            break;
+        }
+        
+        current = v;
+        args = NE_TAIL(args);
+    }
+    
+    return NE_YES;
+}
+
+static NeBool N_GreaterThanEqual(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue current = 0;
+    
+    NE_NEED_NUM_ARGS(N, args, 2);
+    NE_EVAL(N, NE_HEAD(args), env, current);
+    args = NE_TAIL(args);
+    *result = NE_BOOLEAN_VALUE(NE_YES);
+    
+    while (args)
+    {
+        NeValue v;
+        NeBool compare;
+        
+        NE_EVAL(N, NE_HEAD(args), env, v);
+        if (!NeLessThan(N, v, current, &compare)) return NE_NO;
+        if (!compare)
+        {
+            if (!NeEqual(current, v))
+            {
+                *result = NE_BOOLEAN_VALUE(NE_NO);
+                break;
+            }
+        }
+        
+        current = v;
+        args = NE_TAIL(args);
+    }
+    
+    return NE_YES;
+}
+
 static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     SaveScratch(N);
@@ -5580,6 +5673,9 @@ NeBool RegisterCoreNatives(Nerd N)
         
         // Comparatives
         NE_NATIVE("<", N_LessThan)
+        NE_NATIVE("<=", N_LessThanEqual)
+        NE_NATIVE(">", N_GreaterThan)
+        NE_NATIVE(">=", N_GreaterThanEqual)
 
         // Strings
         NE_NATIVE("str", N_Str)

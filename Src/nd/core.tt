@@ -195,10 +195,30 @@ Reader.Lambda.Nothing			->															FAIL:Lambda defined with no parameters.
 #
 Compare.Less.Number.Basic.1		(< 1 2 3)													yes
 Compare.Less.Number.Basic.2		(< 1 3 2)													no
+Compare.Less.Number.Basic.3		(< 1 1)														no
 Compare.Less.Number.Error.1		(< 1)														FAIL:Not enough arguments given, expected at least 2 arguments.
 Compare.Less.Number.Error.2		(<)															FAIL:Not enough arguments given, expected at least 2 arguments.
 Compare.Less.Char.Basic.1		(< \a \b)													yes
 Compare.Less.Char.Basic.2		(< \b \a)													no
+Compare.Less.Char.Basic.3		(< \a \a)													no
+Compare.LessEq.Number.Basic.1	(<= 1 2 3)													yes
+Compare.LessEq.Number.Basic.2	(<= 1 3 2)													no
+Compare.LessEq.Number.Basic.3	(<= 1 1)													yes
+Compare.LessEq.Number.Error.1	(<= 1)														FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.LessEq.Number.Error.2	(<=)														FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.Greater.Number.Basic.1	(> 3 2 1)													yes
+Compare.Greater.Number.Basic.2	(> 1 3 2)													no
+Compare.Greater.Number.Basic.3	(> 1 1)														no
+Compare.Greater.Number.Error.1	(> 1)														FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.Greater.Number.Error.2	(>)															FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.Greater.Char.Basic.1	(> \a \b)													no
+Compare.Greater.Char.Basic.2	(> \b \a)													yes
+Compare.Greater.Char.Basic.3	(> \a \a)													no
+Compare.GreaterEq.Number.Basic.1	(>= 3 2 1)												yes
+Compare.GreaterEq.Number.Basic.2	(>= 1 3 2)												no
+Compare.GreaterEq.Number.Basic.3	(>= 1 1)												yes
+Compare.GreaterEq.Number.Error.1	(>= 1)													FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.GreaterEq.Number.Error.2	(>=)													FAIL:Not enough arguments given, expected at least 2 arguments.
 
 #
 # Builtins
