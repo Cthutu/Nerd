@@ -313,7 +313,7 @@ NeBool NeEqual(NeValue v1, NeValue v2)
     case NE_PT_STRING:
         {
             NeStringInfoRef s1 = NE_CAST(v1, NeStringInfo);
-            NeStringInfoRef s2 = NE_CAST(v1, NeStringInfo);
+            NeStringInfoRef s2 = NE_CAST(v2, NeStringInfo);
 
             return ((s1->mHash != s2->mHash) ||
                     (s1->mLength != s2->mLength) ||
@@ -5629,6 +5629,60 @@ static NeBool N_GreaterThanEqual(Nerd N, NeValue args, NeValue env, NE_OUT NeVal
     return NE_YES;
 }
 
+static NeBool N_Equal(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue current = 0;
+    
+    NE_NEED_NUM_ARGS(N, args, 2);
+    NE_EVAL(N, NE_HEAD(args), env, current);
+    args = NE_TAIL(args);
+    *result = NE_BOOLEAN_VALUE(NE_YES);
+    
+    while (args)
+    {
+        NeValue v;
+        
+        NE_EVAL(N, NE_HEAD(args), env, v);
+        if (!NeEqual(v, current))
+        {
+            *result = NE_BOOLEAN_VALUE(NE_NO);
+            break;
+        }
+        
+        current = v;
+        args = NE_TAIL(args);
+    }
+    
+    return NE_YES;
+}
+
+static NeBool N_NotEqual(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue current = 0;
+    
+    NE_NEED_NUM_ARGS(N, args, 2);
+    NE_EVAL(N, NE_HEAD(args), env, current);
+    args = NE_TAIL(args);
+    *result = NE_BOOLEAN_VALUE(NE_NO);
+    
+    while (args)
+    {
+        NeValue v;
+        
+        NE_EVAL(N, NE_HEAD(args), env, v);
+        if (!NeEqual(v, current))
+        {
+            *result = NE_BOOLEAN_VALUE(NE_YES);
+            break;
+        }
+        
+        current = v;
+        args = NE_TAIL(args);
+    }
+    
+    return NE_YES;
+}
+
 static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     SaveScratch(N);
@@ -5676,6 +5730,8 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("<=", N_LessThanEqual)
         NE_NATIVE(">", N_GreaterThan)
         NE_NATIVE(">=", N_GreaterThanEqual)
+        NE_NATIVE("==", N_Equal)
+        NE_NATIVE("!=", N_NotEqual)
 
         // Strings
         NE_NATIVE("str", N_Str)

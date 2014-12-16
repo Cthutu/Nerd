@@ -219,6 +219,22 @@ Compare.GreaterEq.Number.Basic.2	(>= 1 3 2)												no
 Compare.GreaterEq.Number.Basic.3	(>= 1 1)												yes
 Compare.GreaterEq.Number.Error.1	(>= 1)													FAIL:Not enough arguments given, expected at least 2 arguments.
 Compare.GreaterEq.Number.Error.2	(>=)													FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.Equal.Number.Basic.1	(== 1 1 1)													yes
+Compare.Equal.Number.Basic.2	(== 1 1 2)													no
+Compare.Equal.Error.1			(== 1)														FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.Equal.Error.2			(==)														FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.Equal.Char.Basic.1		(== \a \a \a)												yes
+Compare.Equal.Char.Basic.2		(== \a \a \b)												no
+Compare.Equal.String.Basic.1	(== "Hello" "Hello")										yes
+Compare.Equal.String.Basic.1	(== "Hello" "hello")										no
+Compare.NotEqual.Number.Basic.1	(!= 1 1 1)													no
+Compare.NotEqual.Number.Basic.2	(!= 1 1 2)													yes
+Compare.NotEqual.Error.1		(!= 1)														FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.NotEqual.Error.2		(!=)														FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.NotEqual.Char.Basic.1	(!= \a \a \a)												no
+Compare.NotEqual.Char.Basic.2	(!= \a \a \b)												yes
+Compare.NotEqual.String.Basic.1	(!= "Hello" "Hello")										no
+Compare.NotEqual.String.Basic.1	(!= "Hello" "hello")										yes
 
 #
 # Builtins
