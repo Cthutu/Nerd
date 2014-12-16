@@ -296,6 +296,9 @@ struct _Nerd
 //
 #define NE_ALIGN(i, alignIndex) (((i) + ((alignIndex)-1)) & ~((alignIndex)-1))
 
+// Forward declarations
+static void PromoteNumbers(NeNumberRef, NeNumberRef);
+
 // Compare two values and return NE_YES if they are equal.
 //
 NeBool NeEqual(NeValue v1, NeValue v2)
@@ -316,9 +319,130 @@ NeBool NeEqual(NeValue v1, NeValue v2)
                     (s1->mLength != s2->mLength) ||
                     (strcmp(s1->mString, s2->mString) != 0)) ? NE_NO : NE_YES;
         }
+            
+    case NE_PT_NUMBER:
+        {
+            NeNumber n1, n2;
+            if (!NeGetNumber(v1, &n1)) return NE_NO;
+            if (!NeGetNumber(v2, &n2)) return NE_NO;
+            
+            PromoteNumbers(&n1, &n2);
+            switch(n1.mNumType)
+            {
+            case NeNumberType_Integer: return n1.mInteger == n2.mInteger ? NE_YES : NE_NO;
+            case NeNumberType_Float: return n1.mFloat == n2.mFloat ? NE_YES : NE_NO;
+            case NeNumberType_Ratio: return ((n1.mNumerator == n2.mNumerator) &&
+                                             (n2.mDenominator == n2.mDenominator)) ? NE_YES : NE_NO;
+            default: NE_ASSERT(0); return NE_NO;
+            }
+        }
 
     default:
         return NE_NO;
+    }
+}
+
+static NeBool NumberLessThan (NeNumberRef n1, NeNumberRef n2, NE_OUT NeBool* result)
+{
+    PromoteNumbers(n1, n2);
+    switch (n1->mNumType)
+    {
+        case NeNumberType_Integer:
+            *result = (n1->mInteger < n2->mInteger) ? NE_YES : NE_NO;
+            break;
+            
+        case NeNumberType_Float:
+            *result = (n1->mFloat < n2->mFloat) ? NE_YES : NE_NO;
+            break;
+            
+        case NeNumberType_Ratio:
+            {
+                NeInt a1 = n1->mNumerator * n2->mDenominator;
+                NeInt a2 = n2->mNumerator * n1->mDenominator;
+                *result = (a1 < a2) ? NE_YES : NE_NO;
+            }
+            break;
+    }
+    return NE_YES;
+}
+
+NeBool NeLessThan(Nerd N, NeValue v1, NeValue v2, NE_OUT NeBool* result)
+{
+    if (NE_TYPEOF(v1) != NE_TYPEOF(v2))
+    {
+        NeBool error = NE_YES;
+        
+        // May be incompatible.  Let's do some more checks before we're sure.
+        if (NE_IS_NUMBER(v1) && NE_IS_NUMBER(v2))
+        {
+            error = NE_NO;
+        }
+        
+        if (error)
+        {
+            return NeError(N, "Comparing incompatible types: '%s' and '%s'.",
+                           NeGetTypeName(NeGetType(v1)),
+                           NeGetTypeName(NeGetType(v2)));
+        }
+    }
+    
+    switch(NE_TYPEOF(v1))
+    {
+    case NE_PT_KEYVALUE:
+        if (!NeLessThan(N, NeGetKey(v1), NeGetKey(v2), result)) return NE_NO;
+        if (NE_EXTENDED_VALUE(*result)) return NE_YES;
+        if (NeEqual(NeGetKey(v1), NeGetKey(v2)))
+        {
+            return NeLessThan(N, NeGetValue(v1), NeGetValue(v2), result);
+        }
+        else
+        {
+            *result = NE_NO;
+            return NE_YES;
+        }
+            
+    case NE_PT_SYMBOL:
+    case NE_PT_STRING:
+    case NE_PT_KEYWORD:
+        {
+            NeString str1 = NeGetString(v1);
+            NeString str2 = NeGetString(v2);
+            *result = strcmp(str1, str2) < 0 ? NE_YES : NE_NO;
+            return NE_YES;
+        }
+            
+    case NE_PT_NUMBER:
+        {
+            NeNumber n1, n2;
+            if (!NeGetNumber(v1, &n1)) return NE_NO;
+            if (!NeGetNumber(v2, &n2)) return NE_NO;
+            return NumberLessThan(&n1, &n2, result);
+        }
+            
+    case NE_PT_EXTENDED:
+        switch (NE_EXTENDED_TYPEOF(v1))
+        {
+        case NE_XT_SHORTINT:
+        case NE_XT_SHORTFLOAT:
+        case NE_XT_SHORTRATIO:
+            {
+                NeNumber n1, n2;
+                if (!NeGetNumber(v1, &n1)) return NE_NO;
+                if (!NeGetNumber(v2, &n2)) return NE_NO;
+                return NumberLessThan(&n1, &n2, result);
+            }
+                
+        case NE_XT_CHARACTER:
+                *result = NE_EXTENDED_VALUE(v1) < NE_EXTENDED_VALUE(v2) ? NE_YES : NE_NO;
+                return NE_YES;
+                
+        default:
+            return NeError(N, "Invalid type for comparison.");
+                
+        }
+            
+    default:
+        return NeError(N, "Invalid type for comparison.");
     }
 }
 
@@ -5383,6 +5507,35 @@ static NeBool N_Mod(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     return NE_YES;
 }
 
+static NeBool N_LessThan(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue current = 0;
+    
+    NE_NEED_NUM_ARGS(N, args, 2);
+    NE_EVAL(N, NE_HEAD(args), env, current);
+    args = NE_TAIL(args);
+    *result = NE_BOOLEAN_VALUE(NE_YES);
+    
+    while (args)
+    {
+        NeValue v;
+        NeBool compare;
+        
+        NE_EVAL(N, NE_HEAD(args), env, v);
+        if (!NeLessThan(N, current, v, &compare)) return NE_NO;
+        if (!compare)
+        {
+            *result = NE_BOOLEAN_VALUE(NE_NO);
+            break;
+        }
+        
+        current = v;
+        args = NE_TAIL(args);
+    }
+    
+    return NE_YES;
+}
+
 static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     SaveScratch(N);
@@ -5416,6 +5569,7 @@ NeBool RegisterCoreNatives(Nerd N)
         // Core functions
         NE_NATIVE("fn", N_Fn)
         NE_NATIVE("quote", N_Quote)
+        //NE_NATIVE("cond", N_Cond)
 
         // Arithmetic
         NE_NATIVE("+", N_Add)
@@ -5423,6 +5577,9 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("*", N_Multiply)
         NE_NATIVE("/", N_Divide)
         NE_NATIVE("%", N_Mod)
+        
+        // Comparatives
+        NE_NATIVE("<", N_LessThan)
 
         // Strings
         NE_NATIVE("str", N_Str)

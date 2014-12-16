@@ -230,7 +230,9 @@ NeType;
 #define NE_UNDEFINED_VALUE              NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_UNDEFINED)
 #define NE_QUOTE_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_QUOTE)
 #define NE_LAMBDA_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_LAMBDA)
-#define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? 1 : 0))
+#define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? (NeUInt)1 : (NeUInt)0))
+#define NE_YES_VALUE                    NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 1)
+#define NE_NO_VALUE                     NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 0)
 
 // Values of guaranteed bit size - checked by NeOpen()
 typedef int8_t NeInt8;
@@ -349,9 +351,16 @@ NeBool NePushValue(Nerd N, NeValue value);
 // Utilities
 //----------------------------------------------------------------------------------------------------
 
-// Compare two values and return NE_YES if they are exactly the same
+// Compare two values and return NE_YES if they are exactly the same.  Will return NE_NO if the types
+// cannot be compared.
 //
 NeBool NeEqual(NeValue v1, NeValue v2);
+
+// Compare two values and returns NE_YES in result if v1 < v2, or v1 comes before v2 (as in strings).
+// Will return NE_NO if there is an error in comparison (for example, comparing incompatible types).
+// Will call NeError() if an error occurs.
+//
+NeBool NeLessThan(Nerd N, NeValue v1, NeValue v2, NE_OUT NeBool* result);
 
 //----------------------------------------------------------------------------------------------------
 // Cells

@@ -1,205 +1,217 @@
 #
 # Literals
 #
-Literal.String			"Hello!"													"Hello!"
+Literal.String					"Hello!"													"Hello!"
 
 #
 # Assignments
 #
-Assignment.String		x: "Hello World!" x											"Hello World!"
-Assignment.Symbol		x:42 y:x y													42
-Assignment.Float		foo:3.14 foo												3.14
-Assignment.Ratio		x:-2/10 x													-1/5
+Assignment.String				x: "Hello World!" x											"Hello World!"
+Assignment.Symbol				x:42 y:x y													42
+Assignment.Float				foo:3.14 foo												3.14
+Assignment.Ratio				x:-2/10 x													-1/5
 
 #
 # Arithmetic
 #
-Addition.Integer		(+ 1 2)														3
-Addition.Float			(+ 3.2 4.1)													7.3
-Addition.Ratio			(+ 5/2 12/6)												9/2
-Addition.Mix			(+ 3 1/4)													13/4
-Addition.Single			(+ 2)														2
-Addition.Many			(+ 1 2 3 4 5)												15
-Addition.Nested			(+ 1 3 (+ 7 2))												13
-Addition.NotNumber		(+ 4 5/4 "Hello")											FAIL:Argument 3 should be of type 'number', but found type 'string'.
-Addition.Variable		x:4 y:3 (+ x y)												7
-Addition.NoArgs			(+)															FAIL:Not enough arguments given, expected at least 1 argument.
+Addition.Integer				(+ 1 2)														3
+Addition.Float					(+ 3.2 4.1)													7.3
+Addition.Ratio					(+ 5/2 12/6)												9/2
+Addition.Mix					(+ 3 1/4)													13/4
+Addition.Single					(+ 2)														2
+Addition.Many					(+ 1 2 3 4 5)												15
+Addition.Nested					(+ 1 3 (+ 7 2))												13
+Addition.NotNumber				(+ 4 5/4 "Hello")											FAIL:Argument 3 should be of type 'number', but found type 'string'.
+Addition.Variable				x:4 y:3 (+ x y)												7
+Addition.NoArgs					(+)															FAIL:Not enough arguments given, expected at least 1 argument.
 
-Subtraction.Integer		(- 10 3)													7
-Subtraction.Float		(- 7.3 4.1)													3.2
-Subtraction.Ratio		(- 5/4 2/3)													7/12
-Subtraction.Mix			(- 2 1/4)													7/4
-Subtraction.Single		(- 4)														-4
-Subtraction.Many		(- 10 4 3 9)												-6
-Subtraction.NoArgs		(-)															FAIL:Not enough arguments given, expected at least 1 argument.
+Subtraction.Integer				(- 10 3)													7
+Subtraction.Float				(- 7.3 4.1)													3.2
+Subtraction.Ratio				(- 5/4 2/3)													7/12
+Subtraction.Mix					(- 2 1/4)													7/4
+Subtraction.Single				(- 4)														-4
+Subtraction.Many				(- 10 4 3 9)												-6
+Subtraction.NoArgs				(-)															FAIL:Not enough arguments given, expected at least 1 argument.
 
-Multiplication.Integer	(* 5 4)														20
-Multiplication.Float	(* 1.2 5.6)													6.72
-Multiplication.Ratio	(* 13/4 9/5)												117/20
-Multiplication.Mix		(* 6 18/4)													27
-Multiplication.Single	(* 5)														5
-Multiplication.Many		(* 3 7 2.4 5/4)												63
-Multiplication.NoArgs	(*)															FAIL:Not enough arguments given, expected at least 1 argument.
+Multiplication.Integer			(* 5 4)														20
+Multiplication.Float			(* 1.2 5.6)													6.72
+Multiplication.Ratio			(* 13/4 9/5)												117/20
+Multiplication.Mix				(* 6 18/4)													27
+Multiplication.Single			(* 5)														5
+Multiplication.Many				(* 3 7 2.4 5/4)												63
+Multiplication.NoArgs			(*)															FAIL:Not enough arguments given, expected at least 1 argument.
 
-Division.Integer		(/ 4 3)														4/3
-Division.Float			(/ 3.2 .6)													5.33333
-Division.Ratio			(/ 4/3 -2/5)												-10/3
-Division.Mix			(/ 5 2/3)													15/2
-Division.Single			(/ 4)														1/4
-Division.Many			(/ 16 2 4)													2
-Division.NoArgs			(/)															FAIL:Not enough arguments given, expected at least 1 argument.
-Division.ByZero1		(/ 0)														FAIL:Division by zero.
-Division.ByZero2		(/ 4 0)														FAIL:Division by zero.
-Division.ByZero3		(/ 2 3 0)													FAIL:Division by zero.
-Division.ByZero4		x:4 (/ 3 (- x x))											FAIL:Division by zero.
+Division.Integer				(/ 4 3)														4/3
+Division.Float					(/ 3.2 .6)													5.33333
+Division.Ratio					(/ 4/3 -2/5)												-10/3
+Division.Mix					(/ 5 2/3)													15/2
+Division.Single					(/ 4)														1/4
+Division.Many					(/ 16 2 4)													2
+Division.NoArgs					(/)															FAIL:Not enough arguments given, expected at least 1 argument.
+Division.ByZero1				(/ 0)														FAIL:Division by zero.
+Division.ByZero2				(/ 4 0)														FAIL:Division by zero.
+Division.ByZero3				(/ 2 3 0)													FAIL:Division by zero.
+Division.ByZero4				x:4 (/ 3 (- x x))											FAIL:Division by zero.
 
-Mod.Integer				(% 10 3)													1
-Mod.Exact				(% 12 4)													0
-Mod.NoArgs				(%)															FAIL:Not enough arguments given, expected exactly 2 arguments.
-Mod.1Arg				(% 4)														FAIL:Not enough arguments given, expected exactly 2 arguments.
-Mod.3Args				(% 4 5 6)													FAIL:Too many arguments given, expected 2 arguments.
-Mod.TooManyArgs			(% 5 3 7 8)													FAIL:Too many arguments given, expected 2 arguments.
-Mod.DivByZero			(% 4 0)														FAIL:Division by zero.
+Mod.Integer						(% 10 3)													1
+Mod.Exact						(% 12 4)													0
+Mod.NoArgs						(%)															FAIL:Not enough arguments given, expected exactly 2 arguments.
+Mod.1Arg						(% 4)														FAIL:Not enough arguments given, expected exactly 2 arguments.
+Mod.3Args						(% 4 5 6)													FAIL:Too many arguments given, expected 2 arguments.
+Mod.TooManyArgs					(% 5 3 7 8)													FAIL:Too many arguments given, expected 2 arguments.
+Mod.DivByZero					(% 4 0)														FAIL:Division by zero.
 
-Arithmetic.Nested		(+ (- 10 4 1/2) 6 2/3 (/ 9 4 3) (* 2 3))					227/12
+Arithmetic.Nested				(+ (- 10 4 1/2) 6 2/3 (/ 9 4 3) (* 2 3))					227/12
 
 #
 # Functions
 #
-Function.Basic			x:(fn () 42) (x)											42
-Function.Basic2			x:(fn () (+ 1 2)) (x)										3
-Function.Parameter		x:(fn (x) x) (x 42)											42
-Function.TwoParams1		x:(fn (x y) x) (x 1 2)										1
-Function.TwoParams2		x:(fn (x y) y) (x 1 2)										2
-Function.TwoParams3		x:(fn (x y) (+ x y)) (x 1 2)								3
-Function.LocalVar		x:(fn (x) y:x y) (x 42)										42
-Function.LocalFunc		x:(fn (x) y:(fn (x) x) (y x)) (x 42)						42
-Function.OutsideVar		x:(fn (x) y:(fn () x) (y)) (x 42)							42
-Function.FuncNotDefined	x:(fn () (y)) y:(fn () 42) (x)								42
+Function.Basic					x:(fn () 42) (x)											42
+Function.Basic2					x:(fn () (+ 1 2)) (x)										3
+Function.Parameter				x:(fn (x) x) (x 42)											42
+Function.TwoParams1				x:(fn (x y) x) (x 1 2)										1
+Function.TwoParams2				x:(fn (x y) y) (x 1 2)										2
+Function.TwoParams3				x:(fn (x y) (+ x y)) (x 1 2)								3
+Function.LocalVar				x:(fn (x) y:x y) (x 42)										42
+Function.LocalFunc				x:(fn (x) y:(fn (x) x) (y x)) (x 42)						42
+Function.OutsideVar				x:(fn (x) y:(fn () x) (y)) (x 42)							42
+Function.FuncNotDefined			x:(fn () (y)) y:(fn () 42) (x)								42
 
 #
 # Global variables
 #
-Globals.Basic			x:42 x														42
-Globals.Defined1		x:3 x:4														FAIL:Symbol 'x' is already defined.
-Globals.Defined2		x:(fn () a:4 a:3) (x)										FAIL:Symbol 'a' is already defined.
+Globals.Basic					x:42 x														42
+Globals.Defined1				x:3 x:4														FAIL:Symbol 'x' is already defined.
+Globals.Defined2				x:(fn () a:4 a:3) (x)										FAIL:Symbol 'a' is already defined.
 
 #
 # Closures
 #
-Closure.Simple			addn:(fn (n) (fn (x) (+ x n))) ((addn 5) 10)				15
-Closure.Simple2			addn:(fn (n) (fn (x) (+ x n))) aa:(fn (x) a5:(addn 5) (a5 x)) (aa 10)	15
+Closure.Simple					addn:(fn (n) (fn (x) (+ x n))) ((addn 5) 10)				15
+Closure.Simple2					addn:(fn (n) (fn (x) (+ x n))) aa:(fn (x) a5:(addn 5) (a5 x)) (aa 10)	15
 
 #
 # Sequences
 #
-Seq.Simple2				{ 1 2 3 }													3
-Seq.LocalVar			{ a: 42 a }													42
-Seq.LocalVars			a:3 { a: 4 a }												4
-Seq.LocalVars2			a:3 { a: 4 } a												3
+Seq.Simple2						{ 1 2 3 }													3
+Seq.LocalVar					{ a: 42 a }													42
+Seq.LocalVars					a:3 { a: 4 a }												4
+Seq.LocalVars2					a:3 { a: 4 } a												3
 
 #
 # Quote
 #
-Quote.Symbol			(quote a)													a
-Quote.List				(quote (1 2 3))												(1 2 3)
+Quote.Symbol					(quote a)													a
+Quote.List						(quote (1 2 3))												(1 2 3)
 
 #
 # Characters
 #
-Character.Lit.Space		\space														\space
-Character.Lit.Backspace	\backspace													\backspace
-Character.Lit.Tab		\tab														\tab
-Character.Lit.Newline	\newline													\newline
-Character.Lit.Return	\return														\return
-Character.Lit.Bell		\bell														\bell
-Character.Lit.Escape	\esc														\esc
-Character.Lit.Invalid	\weird														FAIL:<Test>(1): READ ERROR: Unknown character token.
-Character.Int.Space		\#32														\space
-Character.Int.Backspace	\#8															\backspace
-Character.Int.Tab		\#9															\tab
-Character.Int.Newline	\#10														\newline
-Character.Int.Return	\#13														\return
-Character.Int.Bell		\#7															\bell
-Character.Int.Escape	\#27														\esc
-Character.Hex.Space		\#x20														\space
-Character.Hex.Backspace	\#x8														\backspace
-Character.Hex.Tab		\#x9														\tab
-Character.Hex.Newline	\#xa														\newline
-Character.Hex.Return	\#xd														\return
-Character.Hex.Bell		\#x7														\bell
-Character.Hex.Escape	\#x1b														\esc
-Character.Letter.Char	\A															\A
-Character.Letter.Int	\#65														\A
-Character.Letter.Hex	\#x41														\A
+Character.Lit.Space				\space														\space
+Character.Lit.Backspace			\backspace													\backspace
+Character.Lit.Tab				\tab														\tab
+Character.Lit.Newline			\newline													\newline
+Character.Lit.Return			\return														\return
+Character.Lit.Bell				\bell														\bell
+Character.Lit.Escape			\esc														\esc
+Character.Lit.Invalid			\weird														FAIL:<Test>(1): READ ERROR: Unknown character token.
+Character.Int.Space				\#32														\space
+Character.Int.Backspace			\#8															\backspace
+Character.Int.Tab				\#9															\tab
+Character.Int.Newline			\#10														\newline
+Character.Int.Return			\#13														\return
+Character.Int.Bell				\#7															\bell
+Character.Int.Escape			\#27														\esc
+Character.Hex.Space				\#x20														\space
+Character.Hex.Backspace			\#x8														\backspace
+Character.Hex.Tab				\#x9														\tab
+Character.Hex.Newline			\#xa														\newline
+Character.Hex.Return			\#xd														\return
+Character.Hex.Bell				\#x7														\bell
+Character.Hex.Escape			\#x1b														\esc
+Character.Letter.Char			\A															\A
+Character.Letter.Int			\#65														\A
+Character.Letter.Hex			\#x41														\A
 
 #
 # Undefined
 #
 
-Undefined.Literal		undefined													undefined
+Undefined.Literal				undefined													undefined
 
 #
 # List subscripts
 #
 
-ListSub.Basic.1			((quote (4 \a "hello")) 0)									4
-ListSub.Basic.2			((quote (4 \a "hello")) 1)									\a
-ListSub.Basic.3			((quote (4 \a "hello")) 2)									"hello"
-ListSub.Deep.1			((quote (1 (2 3) 4)) 1)										(2 3)
-ListSub.Deep.2			((quote (1 (2 3) 4)) 1 1)									3
-ListSub.Error.Neg		((quote (1 2 3)) -1)										FAIL:Invalid negative index in list subscript 1.
-ListSub.Error.OOR		((quote (1 2 3)) 4)											FAIL:Index out of range in list subscript 1.
-ListSub.Error.NonList.1	((quote a) 0)												FAIL:Invalid procedure.
-ListSub.Error.NonList.2	((quote (1 2 3)) 1 1)										FAIL:Attempt to index a non-list in a list subscript path.
-ListSub.Error.BadIndex	((quote (1 2 3)) \a)										FAIL:Invalid type for list index.  Found type 'character'.
+ListSub.Basic.1					((quote (4 \a "hello")) 0)									4
+ListSub.Basic.2					((quote (4 \a "hello")) 1)									\a
+ListSub.Basic.3					((quote (4 \a "hello")) 2)									"hello"
+ListSub.Deep.1					((quote (1 (2 3) 4)) 1)										(2 3)
+ListSub.Deep.2					((quote (1 (2 3) 4)) 1 1)									3
+ListSub.Error.Neg				((quote (1 2 3)) -1)										FAIL:Invalid negative index in list subscript 1.
+ListSub.Error.OOR				((quote (1 2 3)) 4)											FAIL:Index out of range in list subscript 1.
+ListSub.Error.NonList.1			((quote a) 0)												FAIL:Invalid procedure.
+ListSub.Error.NonList.2			((quote (1 2 3)) 1 1)										FAIL:Attempt to index a non-list in a list subscript path.
+ListSub.Error.BadIndex			((quote (1 2 3)) \a)										FAIL:Invalid type for list index.  Found type 'character'.
 
 #
 # String subscripts
 #
 
-Substring.Character		("Hello" 1)													\e
-Substring.String		("Hello" 1 2)												"el"
-SubString.SmallIndex	("Hello" -1)												FAIL:Index out of range in string subscript.
-SubString.LargeIndex	("Hello" 5)													FAIL:Index out of range in string subscript.
-SubString.LastChar		("Hello" 4)													\o
-SubString.LastString	("Hello" 4 1)												"o"
-SubString.TooLarge		("Hello" 2 5)												FAIL:Invalid size parameter for string subscript.
+Substring.Character				("Hello" 1)													\e
+Substring.String				("Hello" 1 2)												"el"
+SubString.SmallIndex			("Hello" -1)												FAIL:Index out of range in string subscript.
+SubString.LargeIndex			("Hello" 5)													FAIL:Index out of range in string subscript.
+SubString.LastChar				("Hello" 4)													\o
+SubString.LastString			("Hello" 4 1)												"o"
+SubString.TooLarge				("Hello" 2 5)												FAIL:Invalid size parameter for string subscript.
 
 #
 # Reader macros
 # Quoting
 #
 
-Reader.Quote.NoValue	'															FAIL:Invalid quote.
-Reader.Quote.List		'(1 2 3)													(1 2 3)
-Reader.Quote.Symbol		'a															a
-Reader.Quote.SubList	('(1 2 3) 2)												3
+Reader.Quote.NoValue			'															FAIL:Invalid quote.
+Reader.Quote.List				'(1 2 3)													(1 2 3)
+Reader.Quote.Symbol				'a															a
+Reader.Quote.SubList			('(1 2 3) 2)												3
 
 #
 # Reader macros
 # Lambdas
 #
 
-Reader.Lambda.Basic		(() -> 42)													42
-Reader.Lambda.Seq		(() -> { a: 6 b: 7 (* a b)})								42
-Reader.Lambda.Params	add:(a b) -> (+ a b) (add 3 6)								9
-Reader.Lambda.ParamSeq	add:(a b) -> { c:a d:b (+ c d) } (add 6 7)					13
-Reader.Lambda.NoParams	-> 42														FAIL:Lambda defined with no parameters.
-Reader.Lambda.NoBody	() ->														FAIL:Lambda has no body.
-Reader.Lambda.BadParams	42 -> 42													FAIL:Invalid parameters for lambda.
-Reader.Lambda.Nothing	->															FAIL:Lambda defined with no parameters.
+Reader.Lambda.Basic				(() -> 42)													42
+Reader.Lambda.Seq				(() -> { a: 6 b: 7 (* a b)})								42
+Reader.Lambda.Params			add:(a b) -> (+ a b) (add 3 6)								9
+Reader.Lambda.ParamSeq			add:(a b) -> { c:a d:b (+ c d) } (add 6 7)					13
+Reader.Lambda.NoParams			-> 42														FAIL:Lambda defined with no parameters.
+Reader.Lambda.NoBody			() ->														FAIL:Lambda has no body.
+Reader.Lambda.BadParams			42 -> 42													FAIL:Invalid parameters for lambda.
+Reader.Lambda.Nothing			->															FAIL:Lambda defined with no parameters.
+
+#
+# Compares
+#
+Compare.Less.Number.Basic.1		(< 1 2 3)													yes
+Compare.Less.Number.Basic.2		(< 1 3 2)													no
+Compare.Less.Number.Error.1		(< 1)														FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.Less.Number.Error.2		(<)															FAIL:Not enough arguments given, expected at least 2 arguments.
+Compare.Less.Char.Basic.1		(< \a \b)													yes
+Compare.Less.Char.Basic.2		(< \b \a)													no
 
 #
 # Builtins
 #
 
-BI.Str.String			(str "Foo")													"Foo"
-BI.Str.Integer			(str 42)													"42"
-BI.Str.Float			(str 3.14)													"3.14"
-BI.Str.Ratio			(str 1/3)													"1/3"
-BI.Str.Yes				(str yes)													"yes"
-BI.Str.No				(str no)													"no"
-BI.Str.Mixed			(str "Age = " (- (* 6 7) 1))								"Age = 41"
-BI.Str.Recurse			(str "Foo:" (str "Bar"))									"Foo:Bar"
+BI.Str.String					(str "Foo")													"Foo"
+BI.Str.Integer					(str 42)													"42"
+BI.Str.Float					(str 3.14)													"3.14"
+BI.Str.Ratio					(str 1/3)													"1/3"
+BI.Str.Yes						(str yes)													"yes"
+BI.Str.No						(str no)													"no"
+BI.Str.Mixed					(str "Age = " (- (* 6 7) 1))								"Age = 41"
+BI.Str.Recurse					(str "Foo:" (str "Bar"))									"Foo:Bar"
+#BI.Cond.Basic.1					a:1  (cond a (< a 10): "small" else: "big")					"small"
+#BI.Cond.Basic.2					a:11 (cond a (< a 10): "small" else: "big")					"big"
 
