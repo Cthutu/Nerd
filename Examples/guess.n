@@ -1,0 +1,22 @@
+lower: 1
+upper: 100
+
+guess: () ->
+	(int (/ (+ upper lower) / 2))
+
+smaller: () -> {
+	upper: (max lower (- (guess) 1))
+	(guess)
+}
+
+bigger: () -> {
+	lower: (min upper (+ (guess) 1))
+	(guess)
+}
+
+start: (n m) -> {
+	lower: (min n m)
+	upper: (max n m)
+	(guess)
+}
+
