@@ -446,6 +446,11 @@ NeBool NeLessThan(Nerd N, NeValue v1, NeValue v2, NE_OUT NeBool* result)
     }
 }
 
+NeBool NeIsTrue(NeValue v)
+{
+    return ((0 != v) && (NE_NO_VALUE != v)) ? NE_YES : NE_NO;
+}
+
 // Append a new cell at the end of a list.
 //
 static NeBool AppendCell(Nerd N, NE_IN_OUT NeValue* rootRef, NE_IN_OUT NeValue* lastCellRef,
@@ -5365,6 +5370,41 @@ static NeBool N_Quote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef resul
     return NE_YES;
 }
 
+static NeBool N_Cond(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue elseSymbol = NeCreateSymbol(N, "else", 4);
+    NeValue kv = 0;
+    NeValue expr = 0;
+    NeUInt argN = 2;
+    
+    if (!elseSymbol) return NeOutOfMemory(N);
+    
+    NE_NEED_NUM_ARGS(N, args, 2);
+    
+    while (args)
+    {
+        kv = NE_HEAD(args);
+        NE_CHECK_ARG_TYPE(N, kv, argN, NeType_KeyValue);
+        if (elseSymbol == NeGetKey(kv))
+        {
+            NE_EVAL(N, NeGetValue(kv), env, *result);
+            return NE_YES;
+        }
+        NE_EVAL(N, NeGetKey(kv), env, expr);
+        if (NeIsTrue(expr))
+        {
+            NE_EVAL(N, NeGetValue(kv), env, *result);
+            return NE_YES;
+        }
+        
+        args = NE_TAIL(args);
+        ++argN;
+    }
+    
+    *result = 0;
+    return NE_YES;
+}
+
 //----------------------------------------------------------------------------------------------------
 // Arithmetic
 //----------------------------------------------------------------------------------------------------
@@ -5716,7 +5756,7 @@ NeBool RegisterCoreNatives(Nerd N)
         // Core functions
         NE_NATIVE("fn", N_Fn)
         NE_NATIVE("quote", N_Quote)
-        //NE_NATIVE("cond", N_Cond)
+        NE_NATIVE("cond", N_Cond)
 
         // Arithmetic
         NE_NATIVE("+", N_Add)

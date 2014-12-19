@@ -248,6 +248,13 @@ BI.Str.Yes						(str yes)													"yes"
 BI.Str.No						(str no)													"no"
 BI.Str.Mixed					(str "Age = " (- (* 6 7) 1))								"Age = 41"
 BI.Str.Recurse					(str "Foo:" (str "Bar"))									"Foo:Bar"
-#BI.Cond.Basic.1					a:1  (cond a (< a 10): "small" else: "big")					"small"
-#BI.Cond.Basic.2					a:11 (cond a (< a 10): "small" else: "big")					"big"
+BI.Cond.Basic.1					a:1  (cond (< a 10): "small" else: "big")					"small"
+BI.Cond.Basic.2					a:11 (cond (< a 10): "small" else: "big")					"big"
+
+#
+# Macros
+#
+
+#Macro.If						if: (?cond ?then ?else) => `(cond ?cond yes: ?then else: ?else) (if yes yes no)		yes
+#Macro.If						if: (?cond ?then ?else) => `(cond ?cond yes: ?then else: ?else) (if no yes no)		no
 

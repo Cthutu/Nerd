@@ -361,6 +361,10 @@ NeBool NeEqual(NeValue v1, NeValue v2);
 // Will call NeError() if an error occurs.
 //
 NeBool NeLessThan(Nerd N, NeValue v1, NeValue v2, NE_OUT NeBool* result);
+    
+// Return the true-ness of a value.  A value is true if it isn't 'no' or nil.
+//
+NeBool NeIsTrue(NeValue v);
 
 //----------------------------------------------------------------------------------------------------
 // Cells
