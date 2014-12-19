@@ -5405,6 +5405,24 @@ static NeBool N_Cond(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result
     return NE_YES;
 }
 
+static NeBool N_List(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue root = 0, lastCell = 0;
+    
+    while(args)
+    {
+        NeValue v;
+        
+        NE_EVAL(N, NE_HEAD(args), env, v);
+        if (!AppendItem(N, &root, &lastCell, v)) return NE_NO;
+        
+        args = NE_TAIL(args);
+    }
+    
+    *result = root;
+    return NE_YES;
+}
+
 //----------------------------------------------------------------------------------------------------
 // Arithmetic
 //----------------------------------------------------------------------------------------------------
@@ -5757,6 +5775,7 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("fn", N_Fn)
         NE_NATIVE("quote", N_Quote)
         NE_NATIVE("cond", N_Cond)
+        NE_NATIVE("list", N_List)
 
         // Arithmetic
         NE_NATIVE("+", N_Add)

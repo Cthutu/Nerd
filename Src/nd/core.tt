@@ -250,6 +250,12 @@ BI.Str.Mixed					(str "Age = " (- (* 6 7) 1))								"Age = 41"
 BI.Str.Recurse					(str "Foo:" (str "Bar"))									"Foo:Bar"
 BI.Cond.Basic.1					a:1  (cond (< a 10): "small" else: "big")					"small"
 BI.Cond.Basic.2					a:11 (cond (< a 10): "small" else: "big")					"big"
+BI.List.Empty					(list)														nil
+BI.List.Single					(list 1)													(1)
+BI.List.Multiple				(list 1 2 3)												(1 2 3)
+BI.List.Complex					(list 1 (- 5 (+ 1 2)) 3)									(1 2 3)
+BI.List.Assign.1				(list a:5)													(5)
+BI.List.Assign.2				(list a:5) a												5
 
 #
 # Macros
