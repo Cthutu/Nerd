@@ -63,7 +63,7 @@ extern "C"
 //  0000    0       Cell			L		Points to a NeCell structure.
 //  0001    1       Key/Value		L		Points to a NeCell structure.
 //  0010    2       Function		N		Is of form ((Block args) body ...)
-//  0011    3       ?
+//  0011    3       Macro           N       Same as Function
 //  0100    4       Sequence        L       Points to a NeCell structure.
 //  0101    5       ?
 //  0110    6       ?
@@ -148,6 +148,8 @@ typedef enum _NeType
     NeType_List,
     NeType_KeyValue,
     NeType_Function,
+    NeType_Macro,
+    NeType_Sequence,
     NeType_Table,
     NeType_Symbol,
     NeType_String,
@@ -173,6 +175,7 @@ NeType;
 #define NE_PT_CELL			0
 #define NE_PT_KEYVALUE      1
 #define NE_PT_FUNCTION		2
+#define NE_PT_MACRO         3
 #define NE_PT_SEQUENCE      4
 #define NE_PT_TABLE			8
 #define NE_PT_SYMBOL        9
@@ -195,6 +198,7 @@ NeType;
 #define NE_C_UNDEFINED      0
 #define NE_C_QUOTE          1
 #define NE_C_LAMBDA         2
+#define NE_C_MACROSYM       3
 
 // Type checking macros
 #define NE_IS_PRIMARY_TYPE(v, tt)		(NE_TYPEOF(v) == (tt))
@@ -202,6 +206,7 @@ NeType;
 #define NE_IS_CELL(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_CELL)
 #define NE_IS_KEYVALUE(v)               NE_IS_PRIMARY_TYPE((v), NE_PT_KEYVALUE)
 #define NE_IS_FUNCTION(v)				NE_IS_PRIMARY_TYPE((v), NE_PT_FUNCTION)
+#define NE_IS_MACRO(v)                  NE_IS_PRIMARY_TYPE((v), NE_PT_MACRO)
 #define NE_IS_SEQUENCE(v)               NE_IS_PRIMARY_TYPE((v), NE_PT_SEQUENCE)
 #define NE_IS_TABLE(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_TABLE)
 #define NE_IS_SYMBOL(v)                 NE_IS_PRIMARY_TYPE((v), NE_PT_SYMBOL)
@@ -218,7 +223,8 @@ NeType;
                                          (NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTRATIO)))
 #define NE_IS_UNDEFINED(v)				(NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_UNDEFINED))
 #define NE_IS_QUOTE(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_QUOTE))
-#define NE_IS_LAMBDA(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_LAMBDA))
+#define NE_IS_LAMBDA(v)                 (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_LAMBDA))
+#define NE_IS_MACROSYM(v)               (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_MACROSYM))
 #define NE_IS_BOOLEAN(v)                NE_IS_EXTENDED_TYPE((v), NE_XT_BOOLEAN)
 #define NE_IS_NATIVE(v)                 NE_IS_EXTENDED_TYPE((v), NE_XT_NATIVE)
 #define NE_IS_CHARACTER(v)              NE_IS_EXTENDED_TYPE((v), NE_XT_CHARACTER)
@@ -230,6 +236,7 @@ NeType;
 #define NE_UNDEFINED_VALUE              NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_UNDEFINED)
 #define NE_QUOTE_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_QUOTE)
 #define NE_LAMBDA_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_LAMBDA)
+#define NE_MACROSYM_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_MACROSYM)
 #define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? (NeUInt)1 : (NeUInt)0))
 #define NE_YES_VALUE                    NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 1)
 #define NE_NO_VALUE                     NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 0)

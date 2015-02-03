@@ -17,7 +17,7 @@
 #endif
 
 // Enables the unit testing if set to 1
-#define NE_TEST			0
+#define NE_TEST			1
 #define NE_BREAK_ALLOC  0
 
 #if NE_TEST

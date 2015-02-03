@@ -52,7 +52,7 @@
 #define NE_DEBUG_GC                     0       // Garbage collection
 #define NE_DEBUG_TRACE_EVAL             0       // Trace evaluation
 #define NE_DEBUG_TO_FILE                0       // Output to "nerd-debug.log" all output
-#define NE_DEBUG_SYMBOL_HASH            0       // Outputs the hash of every symbol it finds
+#define NE_DEBUG_SYMBOL_HASH            1       // Outputs the hash of every symbol it finds
 #define NE_DEBUG_MACRO_EXPANSION        0       // Show the transformation of code after reader macros
 
 //----------------------------------------------------------------------------------------------------
@@ -560,8 +560,8 @@ NeType NeGetType(NeValue v)
         NeType_List,
         NeType_KeyValue,
         NeType_Function,
-        NeType_Undefined,
-        NeType_Undefined,
+        NeType_Macro,
+        NeType_Sequence,
         NeType_Undefined,
         NeType_Undefined,
         NeType_Undefined,
@@ -628,6 +628,8 @@ NeString NeGetTypeName(NeType t)
         "list",
         "key/value",
         "function",
+        "macro",
+        "sequence",
         "table",
         "symbol",
         "string",
@@ -3156,6 +3158,7 @@ typedef enum _NeToken
     NeToken_False,              // false
     NeToken_Undefined,          // undefined
     NeToken_Lambda,             // ->
+    NeToken_Macro,              // =>
 
     NeToken_COUNT
 }
@@ -3203,7 +3206,7 @@ static const unsigned int gKeyWordHashes[] =
     /* 1 */		NeToken_False,
     /* 2 */		NeToken_True,
     /* 3 */		0,
-    /* 4 */		NeToken_Nil,
+    /* 4 */		NeToken_Nil | (NeToken_Macro << 8),
     /* 5 */		NeToken_Yes,
     /* 6 */		0,
     /* 7 */		0,
@@ -3229,6 +3232,7 @@ static const char* gKeywords[NeToken_COUNT - NeToken_KEYWORDS] =
     "5false",
     "9undefined",
     "2->",
+    "2=>",
 };
 
 typedef struct _NeLex
@@ -4049,6 +4053,12 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
         }
         break;
 
+    case NE_PT_MACRO:
+        {
+            return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "<macro:%p>" : "", NE_CAST(v, void));
+        }
+        break;
+            
     case NE_PT_TABLE:
         {
             NeTableRef table = NE_CAST(v, NeTable);
@@ -4559,6 +4569,10 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue
     case NeToken_Lambda:
         *result = NE_LAMBDA_VALUE;
         break;
+            
+    case NeToken_Macro:
+        *result = NE_MACROSYM_VALUE;
+        break;
 
     default:
         {
@@ -4723,7 +4737,7 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
             NE_TAIL(arg) = 0;
         }
         // Handle lambda
-        else if (NE_HEAD(scan) == NE_LAMBDA_VALUE)
+        else if (NE_HEAD(scan) == NE_LAMBDA_VALUE || NE_HEAD(scan) == NE_MACROSYM_VALUE)
         {
             if (0 == last)
             {
@@ -4765,14 +4779,19 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
                 //      C2 = body (a, b, ... is the body in a sequence)
                 //      C3 = fn symbol
                 //
+                NeBool isMacro = NE_HEAD(scan) == NE_MACROSYM_VALUE;
                 NeValue C0 = last;
                 NeValue C1 = scan;
                 NeValue C2 = NE_TAIL(C1);
-                NeValue C3 = NeCreateCons(N, NeCreateSymbol(N, "fn", 2), C1);
+                NeValue C3 = NeCreateCons(N, NeCreateSymbol(N, isMacro ? "macro" : "fn", isMacro ? 5 : 2), C1);
                 NeValue body = C2;
                 NeValue lastBody = C2;
                 NeValue next = NE_TAIL(C2);
                 NeBool keyValueMode = NE_NO;
+                
+                // TODO-CRITICAL: Check logic of scan
+                // TODO-CRITICAL: Make sure body of function is transformed.
+                scan = next;
 
                 if (NE_IS_KEYVALUE(NE_HEAD(C0)))
                 {
@@ -4822,6 +4841,9 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
                 {
                     NE_HEAD(C0) = C3;               // ==> ... (fn P B...) ...
                 }
+                
+                // Now transform the body
+                Transform(N, &C3);
             }
         }
 
@@ -5363,6 +5385,13 @@ static NeBool N_Fn(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     return func ? NE_YES : NE_NO;
 }
 
+static NeBool N_Macro(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    if (!N_Fn(N, args, env, result)) return NE_NO;
+    *result = NE_BOX(result, NE_PT_MACRO);
+    return NE_YES;
+}
+
 static NeBool N_Quote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
@@ -5773,6 +5802,7 @@ NeBool RegisterCoreNatives(Nerd N)
     NeNativeInfo info[] = {
         // Core functions
         NE_NATIVE("fn", N_Fn)
+        NE_NATIVE("macro", N_Macro)
         NE_NATIVE("quote", N_Quote)
         NE_NATIVE("cond", N_Cond)
         NE_NATIVE("list", N_List)
