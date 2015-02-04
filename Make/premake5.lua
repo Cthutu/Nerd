@@ -1,5 +1,7 @@
 -- Karbon build script
 
+rootdir = path.join(path.getdirectory(_SCRIPT), "..")
+
 filter { "platforms:Win32" }
 	system "Windows"
 	architecture "x32"
@@ -35,7 +37,8 @@ solution "Nerd"
 		kind "ConsoleApp"
 		files {
 			"../Src/nd/**.h",
-			"../Src/nd/**.cc"
+			"../Src/nd/**.cc",
+			"../Data/**.*"
 		}
 		links {
 			"Nerd"
@@ -43,6 +46,12 @@ solution "Nerd"
 		includedirs {
 			"../Src/Nerd"
 		}
+		postbuildcommands {
+			"copy \"" .. path.translate(path.join(rootdir, "Data", "*.*")) .. '" "' ..
+				--path.translate(path.join(rootdir, "_Bin", "%{cfg.platform}", "%{cfg.buildcfg}", "%{prj.name}")) .. '"'
+				path.translate(path.join(rootdir, "_Build")) .. '"'
+		}
+
 
 	project "Nerd"
 		targetdir "../_Bin/%{cfg.platform}/%{cfg.buildcfg}/%{prj.name}"

@@ -52,7 +52,7 @@
 #define NE_DEBUG_GC                     0       // Garbage collection
 #define NE_DEBUG_TRACE_EVAL             0       // Trace evaluation
 #define NE_DEBUG_TO_FILE                0       // Output to "nerd-debug.log" all output
-#define NE_DEBUG_SYMBOL_HASH            1       // Outputs the hash of every symbol it finds
+#define NE_DEBUG_SYMBOL_HASH            0       // Outputs the hash of every symbol it finds
 #define NE_DEBUG_MACRO_EXPANSION        0       // Show the transformation of code after reader macros
 
 //----------------------------------------------------------------------------------------------------
@@ -502,7 +502,7 @@ NeBool NeCheckArgType(Nerd N, NeValue arg, NeUInt index, NeType expectedArgType)
         !((expectedArgType == NeType_List) && (argType == NeType_Nil)))
     {
         return NeError(N, "Argument %u should be of type '%s', but found type '%s'.",
-            index,
+            (unsigned int)index,
             NeGetTypeName(expectedArgType),
             NeGetTypeName(argType));
     }
@@ -523,7 +523,7 @@ NeBool NeCheckNumArgs(Nerd N, NeValue args, NeUInt count, NeBool exactCount)
             // Check that we haven't got too many arguments
             if (count < countArgs)
             {
-                return NeError(N, "Too many arguments given, expected %u argument%s.", count, 1 == count ? "" : "s");
+                return NeError(N, "Too many arguments given, expected %u argument%s.", (unsigned int)count, 1 == count ? "" : "s");
             }
         }
         else
@@ -541,12 +541,12 @@ NeBool NeCheckNumArgs(Nerd N, NeValue args, NeUInt count, NeBool exactCount)
     if (exactCount && (countArgs != count))
     {
         return NeError(N, "Not enough arguments given, expected exactly %u argument%s.",
-            count, 1 == count ? "" : "s");
+            (unsigned int)count, 1 == count ? "" : "s");
     }
     else if (!exactCount)
     {
         return NeError(N, "Not enough arguments given, expected at least %u argument%s.",
-            count, 1 == count ? "" : "s");
+            (unsigned int)count, 1 == count ? "" : "s");
     }
 
     return NE_YES;
@@ -4715,6 +4715,8 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
         if (NE_HEAD(scan) && NE_IS_CELL(NE_HEAD(scan)))
         {
             if (!Transform(N, &NE_HEAD(scan))) return NE_NO;
+            last = scan;
+            scan = NE_TAIL(scan);
         }
         // Handle quote
         else if (NE_HEAD(scan) == NE_QUOTE_VALUE)
@@ -4735,6 +4737,8 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
             NE_HEAD(scan) = quoteList;
             NE_TAIL(scan) = NE_TAIL(arg);
             NE_TAIL(arg) = 0;
+            last = scan;
+            scan = NE_TAIL(scan);
         }
         // Handle lambda
         else if (NE_HEAD(scan) == NE_LAMBDA_VALUE || NE_HEAD(scan) == NE_MACROSYM_VALUE)
@@ -4789,7 +4793,6 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
                 NeValue next = NE_TAIL(C2);
                 NeBool keyValueMode = NE_NO;
                 
-                // TODO-CRITICAL: Check logic of scan
                 // TODO-CRITICAL: Make sure body of function is transformed.
                 scan = next;
 
@@ -4843,12 +4846,14 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
                 }
                 
                 // Now transform the body
-                Transform(N, &C3);
+                Transform(N, &C2);
             }
         }
-
-        last = scan;
-        scan = NE_TAIL(scan);
+        else
+        {
+            last = scan;
+            scan = NE_TAIL(scan);
+        }
     }
 
     return NE_YES;
