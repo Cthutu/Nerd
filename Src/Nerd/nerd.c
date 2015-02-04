@@ -4743,6 +4743,8 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
         // Handle lambda
         else if (NE_HEAD(scan) == NE_LAMBDA_VALUE || NE_HEAD(scan) == NE_MACROSYM_VALUE)
         {
+            NeValue body = NE_TAIL(scan);
+
             if (0 == last)
             {
                 return NeError(N, "Lambda defined with no parameters.");
@@ -4763,6 +4765,9 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
                     return NeError(N, "Invalid parameters for lambda.");
                 }
             }
+
+            // Transform the body first
+            if (!Transform(N, &body)) return NE_NO;
 
             // OK, we've verified the (params...) -> body form.  Let's construct
             // a (fn (params...) body) expression, while optimising out a sequence.
@@ -4844,9 +4849,6 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
                 {
                     NE_HEAD(C0) = C3;               // ==> ... (fn P B...) ...
                 }
-                
-                // Now transform the body
-                Transform(N, &C2);
             }
         }
         else
