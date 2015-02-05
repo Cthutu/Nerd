@@ -6,13 +6,14 @@
 // Index of sections:   (Incrementally search for '{' + name)
 //
 //  _SESSION        Nerd structure
-//  BLOCK           Block management
 //  BUFFER          Buffer management
 //  CELL            Cell management
+//  CHAR            Character management
 //  CONFIG          Configuration management
 //  CONVERT         Conversion routines
 //  DEBUG           Debugging
 //  ERROR           Error handling
+//  EVAL            Evaluation
 //  EXEC            Execution
 //  FUNCTION        Function management
 //  GC              Garbage collection

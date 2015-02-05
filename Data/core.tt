@@ -190,6 +190,7 @@ Reader.Lambda.NoBody			() ->														FAIL:Lambda has no body.
 Reader.Lambda.BadParams			42 -> 42													FAIL:Invalid parameters for lambda.
 Reader.Lambda.Nothing			->															FAIL:Lambda defined with no parameters.
 Reader.Lambda.Recursive			((() -> () -> 42))											42
+Reader.Lambda.Complex			x:() -> { y:() -> 42 y } ((x))								42
 
 #
 # Compares
