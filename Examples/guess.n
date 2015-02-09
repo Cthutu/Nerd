@@ -1,22 +1,32 @@
 lower: 1
 upper: 100
 
+min: (a b) ->
+	(cond
+		(< a b): a
+		else: b)
+
+max: (a b) ->
+	(cond
+		(< a b): b
+		else: a)
+
 guess: () ->
-	(int (/ (+ upper lower) / 2))
+	(int (/ (+ upper lower) 2))
 
-smaller: () -> {
-	upper: (max lower (- (guess) 1))
+smaller!: () -> {
+	(set! upper: (max lower (- (guess) 1)))
 	(guess)
 }
 
-bigger: () -> {
-	lower: (min upper (+ (guess) 1))
+bigger!: () -> {
+	(set! lower: (min upper (+ (guess) 1)))
 	(guess)
 }
 
-start: (n m) -> {
-	lower: (min n m)
-	upper: (max n m)
+start!: (n m) -> {
+	(set! lower: (min n m))
+	(set! upper: (max n m))
 	(guess)
 }
 

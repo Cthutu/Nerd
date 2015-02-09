@@ -373,6 +373,14 @@ NeBool NeLessThan(Nerd N, NeValue v1, NeValue v2, NE_OUT NeBool* result);
 //
 NeBool NeIsTrue(NeValue v);
 
+// Assign a value to a source.  The types are any valid types that can be used in a key/value
+// expression for assignment.  There are two types of assignments: functional and non-functional.
+// Functional assignments can only be made to new variables of the same scope.  Non-functional
+// assignments can be made to new or current variables in any scope.  Non-functional assignments
+// can only be made when evaluating in non-functional mode.
+//
+NeBool NeAssign(Nerd N, NeValue source, NeValue value, NeValue env, NeBool functional);
+
 //----------------------------------------------------------------------------------------------------
 // Cells
 //----------------------------------------------------------------------------------------------------

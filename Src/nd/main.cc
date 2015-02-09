@@ -58,8 +58,10 @@ static NeBool RunFile(Nerd T, const char* fileName)
         if (!NeRun(T, fileName, code, length + 1))
         {
             NeOut(T, "ERROR: %s\n\n", NePopString(T));
+            free(code);
             return NE_NO;
         }
+        free(code);
 
         if (!NeToString(T, -1, NE_CONVERT_MODE_REPL))
         {

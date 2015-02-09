@@ -4894,7 +4894,7 @@ NeBool NeRead(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT N
 static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OUT NeValueRef result);
 static NeBool EvaluateList(Nerd N, NeValue codeList, NeTableRef environment, NE_OUT NeValueRef result);
 
-static NeBool Assign(Nerd N, NeValue symbol, NeValue value, NeTableRef environment)
+static NeBool Assign(Nerd N, NeValue symbol, NeValue value, NeTableRef environment, NeBool functional)
 {
     NeValueRef slot = 0;
 
@@ -4902,33 +4902,41 @@ static NeBool Assign(Nerd N, NeValue symbol, NeValue value, NeTableRef environme
     if (!NE_IS_SYMBOL(symbol)) return NeError(N, "Attempted assignment to a non-symbol.");
 
     // Handle the assignment
-    slot = GetTableSlot(environment, symbol, NE_NO);
-    if (slot)
+    slot = GetTableSlot(environment, symbol, !functional);
+    if (functional && slot)
     {
         // Symbol is already defined.  Cannot redefine symbol.
         return NeError(N, "Symbol '%s' is already defined.", NeGetString(symbol));
     }
-    else
+
+    if (!slot)
     {
-#if NE_DEBUG_TRACE_EVAL
-        {
-            char* varDesc = AllocDescription(N, symbol);
-            char* valDesc = AllocDescription(N, value);
-
-            NeOut(N, "ASSIGN [");
-            if (environment == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", environment);
-            NeOut(N, "] %s = %s\n", varDesc, valDesc);
-
-            FreeDescription(N, varDesc);
-            FreeDescription(N, valDesc);
-        }
-#endif
         slot = NewTableSlot(N, environment, symbol);
         if (!slot) return NeOutOfMemory(N);
-        *slot = value;
     }
 
+#if NE_DEBUG_TRACE_EVAL
+    {
+        char* varDesc = AllocDescription(N, symbol);
+        char* valDesc = AllocDescription(N, value);
+
+        NeOut(N, "ASSIGN [");
+        if (environment == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", environment);
+        NeOut(N, "] %s = %s\n", varDesc, valDesc);
+
+        FreeDescription(N, varDesc);
+        FreeDescription(N, valDesc);
+    }
+#endif
+    *slot = value;
+
     return NE_YES;
+}
+
+NeBool NeAssign(Nerd N, NeValue source, NeValue value, NeValue env, NeBool functional)
+{
+    NeTableRef envTable = NE_CAST(env, NeTable);
+    return Assign(N, source, value, envTable, functional);
 }
 
 NeValue GetFunctionEnv(NeValue func, NeValue env)
@@ -4954,6 +4962,7 @@ static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, N
 
 #if NE_DEBUG_TRACE_EVAL
     {
+        NeTableRef funcEnvTable = NE_CAST(funcEnv, NeTable);
         NeOut(N, "ASSIGN [");
         if (callerEnv == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", callerEnv);
         NeOut(N, "] --> [");
@@ -4967,7 +4976,7 @@ static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, N
     {
         NeValue result = 0;
         if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
-        if (!Assign(N, NE_HEAD(argNames), result, env)) return NE_NO;
+        if (!Assign(N, NE_HEAD(argNames), result, env, NE_YES)) return NE_NO;
         argNames = NE_TAIL(argNames);
         argValues = NE_TAIL(argValues);
     }
@@ -5199,7 +5208,7 @@ static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OU
 
            // Evaluate the value
            success = Evaluate(N, value, environment, &value) &&
-               Assign(N, key, value, environment) ? NE_YES : NE_NO;
+               Assign(N, key, value, environment, NE_YES) ? NE_YES : NE_NO;
            if (success) *result = value;
            break;
         }
@@ -5337,7 +5346,7 @@ NeBool NeRegisterNative(Nerd N, const char* nativeName, NeValue environment, NeN
 
     // Assign the compiler function value to the symbol in the environment
     env = NE_CAST(environment ? environment : G(mCoreEnv), NeTable);
-    return Assign(N, sym, NE_MAKE_EXTENDED_VALUE(NE_XT_NATIVE, index), env);
+    return Assign(N, sym, NE_MAKE_EXTENDED_VALUE(NE_XT_NATIVE, index), env, NE_YES);
 }
 
 NeBool NeRegisterNatives(Nerd N, NeNativeInfoRef nativeList, NeValue environment)
@@ -5457,6 +5466,33 @@ static NeBool N_List(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result
     }
     
     *result = root;
+    return NE_YES;
+}
+
+static NeBool N_SetBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue kv;
+    NeInt i = 0;
+
+    NE_NEED_NUM_ARGS(N, args, 1);
+
+    while (args)
+    {
+        NeValue sym;
+        NeValue value;
+
+        ++i;
+        kv = NE_HEAD(args);
+        NE_CHECK_ARG_TYPE(N, kv, i, NeType_KeyValue);
+        sym = NeGetKey(kv);
+        value = NeGetValue(kv);
+        NE_EVAL(N, value, env, value);
+
+        if (!NeAssign(N, sym, value, env, NE_NO)) return NE_NO;
+
+        args = NE_TAIL(args);
+    }
+
     return NE_YES;
 }
 
@@ -5801,6 +5837,37 @@ static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     return *result != 0;
 }
 
+static NeBool N_Int(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue arg;
+    NeNumber number;
+    NeInt i;
+
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
+    NE_EVAL(N, NE_1ST(args), env, arg);
+    NE_CHECK_ARG_TYPE(N, arg, 1, NeType_Number);
+
+    NeGetNumber(arg, &number);
+
+    switch (number.mNumType)
+    {
+    case NeNumberType_Integer:
+        *result = arg;
+        return NE_YES;
+
+    case NeNumberType_Float:
+        i = (NeInt)number.mFloat;
+        break;
+
+    case NeNumberType_Ratio:
+        i = number.mNumerator / number.mDenominator;
+        break;
+    }
+
+    *result = NeCreateInteger(N, i);
+    return *result ? NE_YES : NE_NO;
+}
+
 //----------------------------------------------------------------------------------------------------
 // Standard natives registration
 //----------------------------------------------------------------------------------------------------
@@ -5814,6 +5881,7 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("quote", N_Quote)
         NE_NATIVE("cond", N_Cond)
         NE_NATIVE("list", N_List)
+        NE_NATIVE("set!", N_SetBang)
 
         // Arithmetic
         NE_NATIVE("+", N_Add)
@@ -5830,8 +5898,9 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("==", N_Equal)
         NE_NATIVE("!=", N_NotEqual)
 
-        // Strings
+        // Conversions
         NE_NATIVE("str", N_Str)
+        NE_NATIVE("int", N_Int)
 
         // The end!
         NE_END_NATIVES
