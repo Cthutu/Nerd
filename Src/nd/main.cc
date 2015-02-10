@@ -36,7 +36,7 @@ static void Output(Nerd N, const char* text)
 // Running a single file
 //----------------------------------------------------------------------------------------------------
 
-static NeBool RunFile(Nerd T, const char* fileName)
+static NeBool RunFile(Nerd N, const char* fileName)
 {
     FILE* f;
     size_t length = 0;
@@ -45,6 +45,10 @@ static NeBool RunFile(Nerd T, const char* fileName)
     f = fopen(fileName, "rb");
     if (f)
     {
+        NeValue result = 0;
+        NeString resultString;
+        NeBool success;
+
         if (!fseek(f, 0, SEEK_END)) {
             length = ftell(f);
             fseek(f, 0, SEEK_SET);
@@ -55,29 +59,18 @@ static NeBool RunFile(Nerd T, const char* fileName)
         fclose(f);
         code[length] = 0;
 
-        if (!NeRun(T, fileName, code, length + 1))
-        {
-            NeOut(T, "ERROR: %s\n\n", NePopString(T));
-            free(code);
-            return NE_NO;
-        }
+        success = NeRun(N, fileName, code, length + 1, &result);
+        resultString = NeToString(N, result, success ? NE_CONVERT_MODE_REPL : NE_CONVERT_MODE_NORMAL);
+        NeOut(N, success ? "==> %s\n" : "ERROR: %s\n", resultString);
         free(code);
-
-        if (!NeToString(T, -1, NE_CONVERT_MODE_REPL))
-        {
-            NeOut(T, "ERROR: Unable to output result!\n");
-        }
-        else
-        {
-            NeOut(T, "==> %s\n", NePopString(T));
-        }
+        if (!success) return NE_NO;
     }
     else
     {
-        NeOut(T, "Unable to open %s.", fileName);
+        NeOut(N, "Unable to open %s.", fileName);
     }
 
-    NeGarbageCollect(T);
+    NeGarbageCollect(N);
 
     return NE_YES;
 }
@@ -220,10 +213,10 @@ static Nerd CreateSession(int argc, const char** argv, NeBool* interactive)
     NeSetConfigToDefault(&config);
     config.mCallbacks.mOutputCallback = &Output;
 
-    Nerd T = NeOpen(&config);
+    Nerd N = NeOpen(&config);
     *interactive = NE_NO;
 
-    if (T)
+    if (N)
     {
         // Load in the buffers and read them
         int i = 0;
@@ -247,17 +240,11 @@ static Nerd CreateSession(int argc, const char** argv, NeBool* interactive)
                             ++i;
                             if (i < argc)
                             {
-                                if (NeRun(T, "<cmdline>", argv[i], -1))
-                                {
-                                    // Execution was successful
-                                    NeToString(T, -1, NE_CONVERT_MODE_REPL);
-                                    fprintf(stdout, "==> %s\n", NePopString(T));
-                                }
-                                else
-                                {
-                                    // Error occurred!
-                                    fprintf(stderr, "ERROR: %s\n", NePopString(T));
-                                }
+                                NeValue result;
+                                NeBool success = NeRun(N, "<cmdline>", argv[i], -1, &result);
+                                NeString resultString = NeToString(N, result, NE_CONVERT_MODE_REPL);
+
+                                fprintf(stdout, success ? "==> %s\n" : "ERROR: %s\n", resultString);
                             }
                             else
                             {
@@ -318,7 +305,7 @@ static Nerd CreateSession(int argc, const char** argv, NeBool* interactive)
                         readline = 0;
 
                         // We have the filename of the script to read in.
-                        success = RunFile(T, fileName);
+                        success = RunFile(N, fileName);
                         if (!success) break;
                     }
 
@@ -331,12 +318,12 @@ static Nerd CreateSession(int argc, const char** argv, NeBool* interactive)
             }
             else if (success)
             {
-                success = RunFile(T, param);
+                success = RunFile(N, param);
             }
         }
     }
 
-    return T;
+    return N;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -407,23 +394,11 @@ int main(int argc, const char** argv)
 
                 if (size)
                 {
-                    if (!NeRun(N, "<stdin>", input, size))
-                    {
-                        // Error occurred.
-                        fprintf(stderr, "ERROR: %s\n", NePopString(N));
-                    }
-                    else
-                    {
-                        // Result!
-                        if (NeToString(N, -1, NE_CONVERT_MODE_REPL))
-                        {
-                            fprintf(stdout, "==> %s\n", NePopString(N));
-                        }
-                        else
-                        {
-                            fprintf(stderr, "ERROR: Out of memory!\n");
-                        }
-                    }
+                    NeValue result = 0;
+                    NeBool success = NeRun(N, "<stdin>", input, size, &result);
+                    NeString resultString = NeToString(N, result, success ? NE_CONVERT_MODE_REPL : NE_CONVERT_MODE_NORMAL);
+
+                    fprintf(success ? stdout : stderr, success ? "==> %s\n" : "ERROR: %s\n", resultString);
                 }
 
                 free(input);

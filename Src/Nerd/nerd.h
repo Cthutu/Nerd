@@ -55,6 +55,9 @@ typedef const NeChar* NeString;     // This string is managed - can be freed by 
 // The opaque type that represents a Nerd virtual machine (NVM).
 typedef struct _Nerd* Nerd;
 
+typedef NeUInt NeValue;
+typedef NeValue* NeValueRef;
+
 //----------------------------------------------------------------------------------------------------
 // User-defined callbacks
 // Nerd has no dependency on any 3rd party libraries.  To be able to allocate memory, read from
@@ -110,7 +113,6 @@ NeConfigCallbacks;
 typedef struct _NeConfig
 {
     NeConfigCallbacks   mCallbacks;             // All the callbacks
-    NeUInt              mStackSize;				// Size of the user stack
     NeUInt				mProcessStackSize;		// Size of the stacks used by processes
 }
 NeConfig, *NeConfigRef;
@@ -146,52 +148,8 @@ void NeClose(Nerd N);
 void NeGarbageCollect(Nerd N);
 
 //----------------------------------------------------------------------------------------------------
-// User stack
+// Value conversions
 //----------------------------------------------------------------------------------------------------
-
-//
-// Results are placed on the stack and can be fetched as C types uses the TiPopXXX() functions.
-// Lists can be expanded on to the stack for iteration, or compressed to a list from a sequence of 
-// values.
-//
-
-//
-// Stack control
-//
-
-//
-// Empty the stack completely.
-//
-void NeClearStack(Nerd N);
-
-//
-// Ask for the number of values on the stack.
-//
-NeUInt NeStackSize(Nerd N);
-
-//
-// Stack manipulations functions.
-//
-NeBool NeDuplicate(Nerd N, NeInt index);
-
-//
-// Push commands.
-//
-NeBool NePushString(Nerd N, const char* str, NeUInt size);
-NeBool NePushSymbol(Nerd N, const char* str, NeUInt size);
-
-//
-// Pop commands.
-//
-NeString NePopString(Nerd N);
-
-//
-// Convert commands.
-// These work on the stack.  The index is determines which element in the stack is converted.
-// 0 and positive indices index from the base of the stack (0 = first item pushed, 1 = second item
-// etc) and negative indices count back from the top (-1 = last item pushed, -2 second-last item
-// pushed etc).
-//
 
 #define NE_CONVERT_MODE_NORMAL      0
 #define NE_CONVERT_MODE_REPL        1
@@ -204,11 +162,15 @@ NeString NePopString(Nerd N);
 //      NE_CONVERT_MODE_REPL        Type decoration is added (e.g. strings have quotes, lists have parentheses).
 //      NE_CONVERT_MODE_CODE        A string of the value that can be compiled as that value, or nil if it can't
 //
-NeBool NeToString(Nerd N, NeInt index, int convertMode);
+NeString NeToString(Nerd N, NeValue v, int convertMode);
 
 //----------------------------------------------------------------------------------------------------
 // Execution of code
 //----------------------------------------------------------------------------------------------------
+
+// Current error state.  Will return 0 if there is no error or a string value that describes
+// the error.
+NeString NeGetError(Nerd N);
 
 // NeRun will take a buffer of code, read and evaluate it leaving the result or error
 // message (as a string) on the stack.  It will return NE_YES if it compiled and executed correctly.
@@ -221,7 +183,7 @@ NeBool NeToString(Nerd N, NeInt index, int convertMode);
 // The source parameter is a string that describes where the code came from.  This is used in error
 // messages to help the user pinpoint them.
 //
-NeBool NeRun(Nerd N, const char* source, const char* str, NeUInt size);
+NeBool NeRun(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValueRef result);
 
 //----------------------------------------------------------------------------------------------------
 // Debugging

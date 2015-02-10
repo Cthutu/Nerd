@@ -11,6 +11,7 @@ typedef struct _TestInfo
     NeUInt		mPassedTests;
     NeUInt		mFailedTests;
     NeUInt      mWarnings;
+    NeValue     mResult;
 }
 TestInfo, *TestInfoRef;
 
@@ -42,10 +43,9 @@ NeBool DisplayExpectError(TestInfoRef T, const char* testName)
 
 NeBool TestCode(TestInfoRef T, const char* testName, const char* code, const char* failMessage)
 {
-
-    if (!NeRun(T->mSession, "<Test>", code, -1))
+    if (!NeRun(T->mSession, "<Test>", code, -1, &T->mResult))
     {
-        NeString reason = NePopString(T->mSession);
+        NeString reason = NeGetError(T->mSession);
         if (failMessage)
         {
             if (strcmp(failMessage, reason) == 0)
@@ -66,11 +66,6 @@ NeBool TestCode(TestInfoRef T, const char* testName, const char* code, const cha
     }
     else
     {
-        if (!NeToString(T->mSession, -1, NE_CONVERT_MODE_REPL))
-        {
-            return DisplayError(T, testName, code, "Unable to convert result to string.");
-        }
-
         if (failMessage)
         {
             return DisplayError(T, testName, code, "This test should have failed!");
@@ -94,7 +89,7 @@ void TestEqualString(TestInfoRef T, const char* testName, const char* code, cons
 {
     if (TestSuccess(T, testName, code))
     {
-        NeString codeResult = NePopString(T->mSession);
+        NeString codeResult = NeToString(T->mSession, T->mResult, NE_CONVERT_MODE_REPL);
         if (!strcmp(result, codeResult))
         {
             NeOut(T->mSession, "[PASS] %s\n", testName);

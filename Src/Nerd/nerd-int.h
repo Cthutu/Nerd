@@ -137,8 +137,6 @@ extern "C"
 //		L = Literal			Value can be represented by Nerd code.
 //		N = Non-literal		Value cannot be represented by Nerd code, but a variable can hold a value.
 //
-typedef NeUInt NeValue;
-typedef NeValue* NeValueRef;
 
 // Types
 typedef enum _NeType

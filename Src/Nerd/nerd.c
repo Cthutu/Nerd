@@ -28,12 +28,12 @@
 //  READ            Reading
 //  SCRATCH         Scratch buffer management
 //  SESSION         Session management
-//  STACK           User stack management
 //  STANDARD        Standard natives
 //  STRING          String management
 //  SYMBOL          Symbol management
 //  TABLE           Table management
 //  UTILS           Utility functions
+//  VALUE           Value conversion routines
 //
 //----------------------------------------------------------------------------------------------------
 
@@ -270,9 +270,8 @@ struct _Nerd
 {
     NeGlobalSessionRef      mGlobalSession;     // Pointer to shared global session.
 
-    // User stack
-    NeValue*                mStack;             // Stack for communicating with user.
-    NeUInt                  mTop;               // The stack pointer.
+    // Error state
+    NeValue                 mError;             // Is an error string if an error has occurred, or nil if not.
 
     // Process state
     NeBool                  mDebugMode;         // True if an error has occurred.
@@ -908,7 +907,6 @@ void NeSetConfigToDefault(NeConfigRef config)
 {
     config->mCallbacks.mMemoryCallback = &DefaultMemoryCallback;
     config->mCallbacks.mOutputCallback = &DefaultOutputCallback;
-    config->mStackSize = 256;
     config->mProcessStackSize = 1024;
 }
 
@@ -1001,10 +999,6 @@ Nerd NeOpen(NeConfigRef config)
     // Intialise the symbol table
     G(mSymbolTable) = NeCloneTable(N, 0);
 
-    // Initialise the user stack
-    N->mStack = NE_ALLOC(NeValue, N, sizeof(NeValue)* config->mStackSize, NeMemoryType_UserStack);
-    if (!N->mStack) goto error;
-
     // Initialise the environments
     G(mCoreEnv) = NeCloneTable(N, 0);
     G(mGlobalEnv) = NeCloneTable(N, G(mCoreEnv));
@@ -1031,9 +1025,6 @@ void NeClose(Nerd N)
     if (N)
     {
         NeGlobalSessionRef G = 0;
-
-        // Destroy the stack
-        NE_FREE(N, N->mStack, sizeof(NeValue)* N->mGlobalSession->mConfig.mStackSize, NeMemoryType_UserStack);
 
         // Destroy the pools
         DestroyPool(&G(mCellsPool));
@@ -1737,17 +1728,12 @@ static void GcTraceBlockPool(Nerd N, void* object)
 //
 void NeGarbageCollect(Nerd N)
 {
-    NeUInt i;
-
     // Step 0 - Change the next mark colour
     G(mMarkColour) = !G(mMarkColour);
 
     // Step 1 - Mark all the root values
-    // Step 1.a - Mark all the values in the user stack
-    for (i = 0; i < N->mTop; ++i)
-    {
-        MarkValue(N, N->mStack[i]);
-    }
+    // Step 1.a - Mark the error value
+    MarkValue(N, N->mError);
 
     // Step 1.b - Mark all the values in the global and core environment
     MarkValue(N, G(mGlobalEnv));
@@ -4270,171 +4256,28 @@ static void FreeDescription(Nerd N, char* str)
     NE_FREE(N, str, StrLen(str) + 1, NeMemoryType_Temp);
 }
 
-//----------------------------------------------------------------------------------------------------{STACK}
+//----------------------------------------------------------------------------------------------------{VALUE}
 //----------------------------------------------------------------------------------------------------
-//	U S E R   S T A C K   M A N A G E M E N T
+//	V A L U E   C O N V E R S I O N   R O U T I N E S
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-void NeClearStack(Nerd N)
+NeString NeToString(Nerd N, NeValue v, int convertMode)
 {
-    NE_ASSERT(N);
+    SaveScratch(N);
 
-    N->mTop = 0;
-}
-
-NeUInt NeStackSize(Nerd N)
-{
-    NE_ASSERT(N);
-
-    return N->mTop;
-}
-
-NeBool NePushValue(Nerd N, NeValue v)
-{
-    NE_ASSERT(N);
-
-    // Check to see if we have room on the stack before we push the value
-    if (N->mTop == N->mGlobalSession->mConfig.mStackSize) return NE_NO;
-
-    N->mStack[N->mTop++] = v;
-    return NE_YES;
-}
-
-static NeBool NePopValue(Nerd N, NE_OUT NeValue* v)
-{
-    NE_ASSERT(N);
-    NE_ASSERT(v);
-
-    // Check to see if the stack is not empty
-    if (0 == N->mTop) return NE_NO;
-
-    *v = N->mStack[--N->mTop];
-    return NE_YES;
-}
-
-//
-// Push functions
-//
-
-NeBool NePushString(Nerd N, const char* str, NeUInt size)
-{
-    NeValue v;
-
-    NE_ASSERT(N);
-    NE_ASSERT(str);
-    NE_ASSERT(size);
-
-    v = NeCreateString(N, str, size);
-    if (v)
+    if (!ConvertToString(N, v, convertMode))
     {
-        return NePushValue(N, v);
-    }
-    else
-    {
-        return NE_NO;
-    }
-}
-
-NeBool NePushSymbol(Nerd N, const char* str, NeUInt size)
-{
-    NeValue v;
-
-    NE_ASSERT(N);
-    NE_ASSERT(str);
-    NE_ASSERT(size);
-
-    v = NeCreateSymbol(N, str, size);
-    if (v)
-    {
-        return NePushValue(N, v);
-    }
-    else
-    {
-        return NE_NO;
-    }
-}
-
-//
-// Pop functions
-//
-
-NeString NePopString(Nerd N)
-{
-    NeValue v;
-
-    if (!NePopValue(N, &v)) return NE_NO;
-    return NeGetString(v);
-}
-
-//
-// Conversion
-//
-
-static NeValue* GetStackElementFromIndex(Nerd N, NeInt stackIndex)
-{
-    NeUInt index = stackIndex;
-
-    if (stackIndex < 0)
-    {
-        stackIndex = -stackIndex;
-        if (stackIndex >(NeInt)N->mTop)
-        {
-            NeError(N, "Invalid stack index.");
-            return 0;
-        }
-        else
-        {
-            index = (NeUInt)(N->mTop - stackIndex);
-        }
-    }
-    else
-    {
-        if (stackIndex >= (NeInt)N->mTop)
-        {
-            NeError(N, "Invalid stack index.");
-            return 0;
-        }
-    }
-
-    return &N->mStack[index];
-}
-
-
-NeBool NeToString(Nerd N, NeInt index, int convertMode)
-{
-    NeValue v;
-    NeValue* slot = GetStackElementFromIndex(N, index);
-
-    if (slot)
-    {
-        v = *slot;
-        SaveScratch(N);
-
-        if (!ConvertToString(N, v, convertMode))
-        {
-            RestoreScratch(N);
-            return NE_NO;
-        }
-
-        // Scratch contains the string now
-        v = NeCreateString(N, GetScratch(N), GetScratchLength(N));
         RestoreScratch(N);
-        if (!v) return NE_NO;
-
-        *slot = v;
-        return NE_YES;
+        return "";
     }
-    else
-    {
-        return NE_NO;
-    }
-}
 
-NeBool NeDuplicate(Nerd N, NeInt index)
-{
-    NeValue* slot = GetStackElementFromIndex(N, index);
-    return slot ? NePushValue(N, *slot) : NE_NO;
+    // Scratch contains the string now
+    v = NeCreateString(N, GetScratch(N), GetScratchLength(N));
+    RestoreScratch(N);
+    if (!v) return "";
+
+    return NeGetString(v);
 }
 
 //----------------------------------------------------------------------------------------------------{OUTPUT}
@@ -4483,7 +4326,7 @@ static void ErrorArgs(Nerd N, const char* format, va_list args)
 {
     SaveScratch(N);
     FormatScratchArgs(N, format, args);
-    NePushString(N, GetScratch(N), GetScratchLength(N));
+    N->mError = NeCreateString(N, GetScratch(N), GetScratchLength(N));
     RestoreScratch(N);
 }
 
@@ -4501,6 +4344,12 @@ NeBool NeError(Nerd N, const char* format, ...)
 NeBool NeOutOfMemory(Nerd N)
 {
     return NeError(N, "Out of memory!");
+}
+
+NeString NeGetError(Nerd N)
+{
+    NeString str = NeToString(N, N->mError, NE_CONVERT_MODE_NORMAL);
+    return str;
 }
 
 //----------------------------------------------------------------------------------------------------{READ}
@@ -5301,10 +5150,10 @@ NeBool NeEval(Nerd N, NeValue expression, NeValue environment, NE_OUT NeValueRef
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size)
+static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValueRef result)
 {
     NeValue codeList = 0;
-    NeValue result = 0;
+    *result = 0;
 
     // If size is -1 we need to calculate the size of the buffer.  We add 1 because we know we have
     // a null terminator and we want to include it in the buffer, since all buffers must be null terminated due
@@ -5319,21 +5168,22 @@ static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size)
     NE_ASSERT(NE_IS_CELL(codeList));
 
     // Step 2 - Evaluate the codeList push the result back on.
-    if (!EvaluateList(N, codeList, NE_CAST(G(mGlobalEnv), NeTable), &result)) return NE_NO;
-    NePushValue(N, result);
+    if (!EvaluateList(N, codeList, NE_CAST(G(mGlobalEnv), NeTable), result)) return NE_NO;
 
     return NE_YES;
 }
 
-NeBool NeRun(Nerd N, const char* source, const char* str, NeUInt size)
+NeBool NeRun(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValueRef result)
 {
     // Check to see if the process can execute top-level code.
     if (N->mDebugMode)
     {
-        return NeError(N, "Process is not ready to execute top-level code.  Need to call NeDebugReset() first.");
+        NeError(N, "Process is not ready to execute top-level code.  Need to call NeDebugReset() first.");
+        *result = N->mError;
+        return NE_NO;
     }
 
-    return Run(N, source, str, size);
+    return Run(N, source, str, size, result);
 }
 
 //----------------------------------------------------------------------------------------------------{DEBUG}
