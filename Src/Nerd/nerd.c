@@ -54,7 +54,8 @@
 #define NE_DEBUG_TRACE_EVAL             0       // Trace evaluation
 #define NE_DEBUG_TO_FILE                0       // Output to "nerd-debug.log" all output
 #define NE_DEBUG_SYMBOL_HASH            0       // Outputs the hash of every symbol it finds
-#define NE_DEBUG_MACRO_EXPANSION        0       // Show the transformation of code after reader macros
+#define NE_DEBUG_READER_EXPANSION       0       // Show the transformation of code after reader macros
+#define NE_DEBUG_TRANSFORM              0       // Show what is being transformed
 
 //----------------------------------------------------------------------------------------------------
 // System definition
@@ -1179,6 +1180,7 @@ static NeBool ExpandBuffer(NeBufferRef* buffer)
 {
     NeUInt newSize = (*buffer)->mCapacity + (*buffer)->mIncrement;
     NeUInt stackSize = (*buffer)->mCapacity - (*buffer)->mStackPointer;
+    NeUInt oldSP = (*buffer)->mStackPointer;
     NeBufferRef newBuffer = NE_REALLOC(NeBuffer,
         (*buffer)->mSession, (*buffer),
         (*buffer)->mCapacity + sizeof(struct _NeBuffer),
@@ -1188,7 +1190,7 @@ static NeBool ExpandBuffer(NeBufferRef* buffer)
     {
         newBuffer->mCapacity = newSize;
         newBuffer->mStackPointer = newBuffer->mCapacity - stackSize;
-        MoveMemory(newBuffer->mData + newBuffer->mStackPointer, newBuffer->mData + (*buffer)->mStackPointer, stackSize);
+        MoveMemory(newBuffer->mData + newBuffer->mStackPointer, newBuffer->mData + oldSP, stackSize);
         *buffer = newBuffer;
         return NE_YES;
     }
@@ -4002,17 +4004,32 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
     switch (NE_TYPEOF(v))
     {
     case NE_PT_CELL:
+    case NE_PT_SEQUENCE:
         {
+            char open, close;
+            NeCellRef cell = NE_CELL(v);
+
             if (0 == v)
             {
                 if (convertMode != NE_CONVERT_MODE_NORMAL)
                 {
-                    return FormatScratch(N, "nil");
+                    return FormatScratch(N, NE_TYPEOF(v) == NE_PT_CELL ? "nil" : "{}");
                 }
                 else
                 {
                     return NE_YES;
                 }
+            }
+            
+            if (NE_TYPEOF(v) == NE_PT_CELL)
+            {
+                open = '(';
+                close = ')';
+            }
+            else
+            {
+                open = '{';
+                close = '}';
             }
 
             // (1 2 3):
@@ -4022,7 +4039,7 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
             //
             if (convertMode != NE_CONVERT_MODE_NORMAL)
             {
-                if (!AddScratchChar(N, '(')) return NE_NO;
+                if (!AddScratchChar(N, open)) return NE_NO;
             }
             while (v)
             {
@@ -4035,7 +4052,7 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
             }
             if (convertMode != NE_CONVERT_MODE_NORMAL)
             {
-                if (!AddScratchChar(N, ')')) return NE_NO;
+                if (!AddScratchChar(N, close)) return NE_NO;
             }
         }
         break;
@@ -4237,9 +4254,10 @@ static char* AllocDescription(Nerd N, NeValue v)
         SaveScratch(N);
         ConvertToString(N, v, NE_CONVERT_MODE_REPL);
         NeString desc = GetScratch(N);
-        NeUInt len = GetScratchLength(N) + 1;
-        str = NE_ALLOC(char, N, len, NeMemoryType_Temp);
+        NeUInt len = GetScratchLength(N);
+        str = NE_ALLOC(char, N, len + 1, NeMemoryType_Temp);
         CopyMemory(str, desc, len);
+        str[len] = 0;
         RestoreScratch(N);
     }
     return str;
@@ -4710,12 +4728,21 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
     NeValue scan = *codeList;
     NeValue last = 0;
 
+#if NE_DEBUG_TRANSFORM
+    NeDebugOutValue(N, "TRANSFORM", scan);
+#endif
+
     while (scan != 0)
     {
-        // Handle list
-        if (NE_HEAD(scan) && NE_IS_CELL(NE_HEAD(scan)))
+        // Handle list or sequence
+        if (NE_HEAD(scan) && 
+            (NE_IS_CELL(NE_HEAD(scan)) ||
+             NE_IS_SEQUENCE(NE_HEAD(scan))))
         {
-            if (!Transform(N, &NE_HEAD(scan))) return NE_NO;
+            NeBool isSeq = NE_IS_SEQUENCE(NE_HEAD(scan));
+            NeValue seq = NE_HEAD(scan) & ~0xfull;
+            if (!Transform(N, &seq)) return NE_NO;
+            NE_HEAD(scan) = NE_BOX(seq, isSeq ? NE_PT_SEQUENCE : NE_PT_CELL);
             last = scan;
             scan = NE_TAIL(scan);
         }
@@ -5286,7 +5313,7 @@ static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size)
 
     // Step 1 - parse the code into a list of values (called a code-list).
     if (!NeRead(N, source, str, size, &codeList)) return NE_NO;
-#if NE_DEBUG_MACRO_EXPANSION
+#if NE_DEBUG_READER_EXPANSION
     NeDebugOutValue(N, "EXPANSION", codeList);
 #endif
     NE_ASSERT(NE_IS_CELL(codeList));

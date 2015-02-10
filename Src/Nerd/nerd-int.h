@@ -31,7 +31,7 @@ extern "C"
 #define NE_CAST(v, t) ((t *)((v) & ~0xfull))
 
 // Convert a NeValue to a NeCell pointer
-#define NE_CELL(v) TI_CAST(v, TiCellRef)
+#define NE_CELL(v) NE_CAST(v, NeCell)
 
 // Converts an address and a Nerd Nype (4 bit code) into a NeValue
 #define NE_BOX(p, tt) (((NeUInt)(p) & ~0xfull) | (tt))
