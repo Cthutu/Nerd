@@ -4264,6 +4264,7 @@ static void FreeDescription(Nerd N, char* str)
 
 NeString NeToString(Nerd N, NeValue v, int convertMode)
 {
+    // TODO: Optimise for when value is already a string in non-REPL mode or a symbol
     SaveScratch(N);
 
     if (!ConvertToString(N, v, convertMode))
@@ -4278,6 +4279,46 @@ NeString NeToString(Nerd N, NeValue v, int convertMode)
     if (!v) return "";
 
     return NeGetString(v);
+}
+
+NeInt NeToInt(Nerd N, NeValue v)
+{
+    NeNumber n;
+    if (!NeGetNumber(v, &n)) return 0;
+    switch (n.mNumType)
+    {
+    case NeNumberType_Integer:
+        return n.mInteger;
+
+    case NeNumberType_Float:
+        return (NeInt)n.mFloat;
+
+    case NeNumberType_Ratio:
+        NE_ASSERT(n.mDenominator != 0);
+        return n.mNumerator / n.mDenominator;
+    }
+
+    return 0;
+}
+
+NeFloat NeToFloat(Nerd N, NeValue v)
+{
+    NeNumber n;
+    if (!NeGetNumber(v, &n)) return 0.0;
+    switch (n.mNumType)
+    {
+    case NeNumberType_Integer:
+        return (NeFloat)n.mInteger;
+
+    case NeNumberType_Float:
+        return n.mFloat;
+
+    case NeNumberType_Ratio:
+        NE_ASSERT(n.mDenominator != 0);
+        return (NeFloat)n.mNumerator / (NeFloat)n.mDenominator;
+    }
+
+    return 0;
 }
 
 //----------------------------------------------------------------------------------------------------{OUTPUT}

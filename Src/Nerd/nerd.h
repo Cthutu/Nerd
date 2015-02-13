@@ -164,6 +164,28 @@ void NeGarbageCollect(Nerd N);
 //
 NeString NeToString(Nerd N, NeValue v, int convertMode);
 
+// Convert a value to an integer.
+// If the value is not compatible, it will return 0.
+NeInt NeToInt(Nerd N, NeValue v);
+
+// Convert a value to a float.
+NeFloat NeToFloat(Nerd N, NeValue v);
+
+//
+// Creation functions
+//
+
+// Create a cons-cell given the head and tail.  Will return 0 if there is an out of memory error.
+//
+NeValue NeCreateCons(Nerd N, NeValue head, NeValue tail);
+
+// Create a value from a string.  Use -1 for size if the string is null terminated and you want
+// to calculate this programmatically.
+//
+NeValue NeCreateString(Nerd N, const char* str, NeUInt size);
+
+
+
 //----------------------------------------------------------------------------------------------------
 // Execution of code
 //----------------------------------------------------------------------------------------------------

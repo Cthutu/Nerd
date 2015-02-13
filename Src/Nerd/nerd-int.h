@@ -383,10 +383,6 @@ NeBool NeAssign(Nerd N, NeValue source, NeValue value, NeValue env, NeBool funct
 // Cells
 //----------------------------------------------------------------------------------------------------
 
-// Create a cons-cell given the head and tail.  Will return 0 if there is an out of memory error.
-//
-NeValue NeCreateCons(Nerd N, NeValue head, NeValue tail);
-
 // Recycle a cons-cell that you don't need any more.
 //
 void NeRecycleCons(Nerd N, NeValue v);
@@ -398,11 +394,6 @@ NeValue NeCreateList(Nerd N, NeUInt numElems);
 //----------------------------------------------------------------------------------------------------
 // String management
 //----------------------------------------------------------------------------------------------------
-
-// Create a value from a string.  Use -1 for size if the string is null terminated and you want
-// to calculate this programmatically.
-//
-NeValue NeCreateString(Nerd N, const char* str, NeUInt size);
 
 // Get the string part of the string or symbol.  Will return "" if v is not a string or symbol.
 //
