@@ -5216,6 +5216,8 @@ static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size, NE_O
 
 NeBool NeRun(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValueRef result)
 {
+    NeBool success;
+
     // Check to see if the process can execute top-level code.
     if (N->mDebugMode)
     {
@@ -5224,7 +5226,12 @@ NeBool NeRun(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT Ne
         return NE_NO;
     }
 
-    return Run(N, source, str, size, result);
+    if (!(success = Run(N, source, str, size, result)))
+    { 
+        *result = N->mError;
+    }
+
+    return success;
 }
 
 //----------------------------------------------------------------------------------------------------{DEBUG}
