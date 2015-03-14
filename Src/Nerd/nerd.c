@@ -245,9 +245,6 @@ typedef struct _NeGlobalSession
     // String information
     NeGcObjectRef           mFirstString;       // Start of a linked list of all strings.
 
-    // Scatchpad information
-    NeBufferRef             mScratch;           // The scratch pad.
-
     // Pools
     NePool                  mCellsPool;         // Contains all instances of NeCell.
     NePool                  mTablesPool;        // Contains all instances of NeTable.
@@ -270,11 +267,18 @@ struct _Nerd
 {
     NeGlobalSessionRef      mGlobalSession;     // Pointer to shared global session.
 
+    // Read state
+    NeInt                   mBackquoteDepth;    // >0 = enable comma processing.
+
     // Error state
     NeValue                 mError;             // Is an error string if an error has occurred, or nil if not.
 
     // Process state
     NeBool                  mDebugMode;         // True if an error has occurred.
+
+    // Scatchpad information
+    NeBufferRef             mScratch;           // The scratch pad.
+
 
 };
 
@@ -591,8 +595,13 @@ NeType NeGetType(NeValue v)
     static NeType constantTypes[] =
     {
         NeType_Undefined,
-        NeType_Quote,
-        NeType_Lambda,
+        NeType_Undefined,
+        NeType_Undefined,
+        NeType_Undefined,
+        NeType_Undefined,
+        NeType_Comma,
+        NeType_Splice,
+        NeType_Undefined,
     };
 
     NeUInt type = 0;
@@ -641,8 +650,8 @@ NeString NeGetTypeName(NeType t)
         "boolean",
         "native",
         "character",
-        "quote",
-        "lambda",
+        "comma",
+        "splice",
     };
 
     return typeNames[t];
@@ -704,7 +713,7 @@ static void DumpMemoryAllocs(Nerd N, const char* label)
 
     while (info)
     {
-        if ((void *)(info + 1) != (void *)(G(mScratch)))
+        if ((void *)(info + 1) != (void *)(N->mScratch))
         {
             DumpMemoryInfo(N, info, label);
         }
@@ -1004,8 +1013,8 @@ Nerd NeOpen(NeConfigRef config)
     G(mGlobalEnv) = NeCloneTable(N, G(mCoreEnv));
 
     // Initialise the scratch pad
-    G(mScratch) = CreateBuffer(N, NE_DEFAULT_BUFFER_SIZE);
-    if (!G(mScratch)) goto error;
+    N->mScratch = CreateBuffer(N, NE_DEFAULT_BUFFER_SIZE);
+    if (!N->mScratch) goto error;
 
     // Register core functions
     G(mNativeFuncBuffer) = CreateBuffer(N, 16);
@@ -1026,25 +1035,30 @@ void NeClose(Nerd N)
     {
         NeGlobalSessionRef G = 0;
 
-        // Destroy the pools
-        DestroyPool(&G(mCellsPool));
-        DestroyPool(&G(mTablesPool));
-        DestroyPool(&G(mNumbersPool));
-        DestroyPool(&G(mBlocksPool));
-
-        // Free the strings
-        while (G(mFirstString))
-        {
-            NeStringInfoRef strInfo = (NeStringInfoRef)G(mFirstString);
-            G(mFirstString) = G(mFirstString)->mNext;
-            NE_FREE(N, strInfo, sizeof(NeStringInfo)+strInfo->mLength + 1, NeMemoryType_String);
-        }
-
         // Free the shared global session structure if necessary
         if (--G(mRefCount) == 0) G = N->mGlobalSession;
 
-        // Destroy the buffers
-        DestroyBuffer(G(mNativeFuncBuffer));
+        // Destroy global data structures.  Freeing memory relies on the Nerd structure
+        // still being around.
+        if (G)
+        {
+            // Destroy the pools
+            DestroyPool(&G(mCellsPool));
+            DestroyPool(&G(mTablesPool));
+            DestroyPool(&G(mNumbersPool));
+            DestroyPool(&G(mBlocksPool));
+
+            // Free the strings
+            while (G(mFirstString))
+            {
+                NeStringInfoRef strInfo = (NeStringInfoRef)G(mFirstString);
+                G(mFirstString) = G(mFirstString)->mNext;
+                NE_FREE(N, strInfo, sizeof(NeStringInfo) + strInfo->mLength + 1, NeMemoryType_String);
+            }
+
+            // Destroy the buffers
+            DestroyBuffer(G->mNativeFuncBuffer);
+        }
 
         // Check for leaks!
 #if NE_DEBUG_MEMORY
@@ -1052,11 +1066,12 @@ void NeClose(Nerd N)
 #endif
 
         // Destroy the scratch buffer (DumpMemoryAllocs ignores this buffer)
-        DestroyBuffer(G(mScratch));
+        DestroyBuffer(N->mScratch);
 
         // Free the session structure
         NE_FREE(N, N, sizeof(struct _Nerd), NeMemoryType_Session);
 
+        // Free the global structure if necessaruy.
         if (G)
         {
             // No local session is referencing the global session data any more
@@ -1382,22 +1397,22 @@ static void CommitBuffer(NeBufferRef buffer)
 
 // static void ResetScratch(Nerd N)
 // {
-//     ResetBuffer(G(mScratch));
+//     ResetBuffer(N->mScratch);
 // }
 
 static void SaveScratch(Nerd N)
 {
-    SaveBuffer(&G(mScratch));
+    SaveBuffer(&N->mScratch);
 }
 
 static void RestoreScratch(Nerd N)
 {
-    RestoreBuffer(G(mScratch));
+    RestoreBuffer(N->mScratch);
 }
 
 static NeBool FormatScratchArgs(Nerd N, const char* format, va_list args)
 {
-    return BufferAddFormatArgs(&G(mScratch), format, args);
+    return BufferAddFormatArgs(&N->mScratch, format, args);
 }
 
 static NeBool FormatScratch(Nerd N, const char* format, ...)
@@ -1414,7 +1429,7 @@ static NeBool FormatScratch(Nerd N, const char* format, ...)
 
 static NeBool AddScratchBuffer(Nerd N, const void* buffer, NeUInt size)
 {
-    return BufferAdd(&G(mScratch), buffer, size) != 0 ? NE_YES : NE_NO;
+    return BufferAdd(&N->mScratch, buffer, size) != 0 ? NE_YES : NE_NO;
 }
 
 static NeBool AddScratchChar(Nerd N, char c)
@@ -1424,12 +1439,12 @@ static NeBool AddScratchChar(Nerd N, char c)
 
 static const char* GetScratch(Nerd N)
 {
-    return (const char*)BufferGet(G(mScratch), 0, 0);
+    return (const char*)BufferGet(N->mScratch, 0, 0);
 }
 
 static NeUInt GetScratchLength(Nerd N)
 {
-    return BufferLength(G(mScratch));
+    return BufferLength(N->mScratch);
 }
 
 //----------------------------------------------------------------------------------------------------{POOL}
@@ -2330,6 +2345,12 @@ NeValue* NeNewTableSlot(Nerd N, NeValue table, NeValue key)
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
+NeValue NeCreateKeyValue(Nerd N, NeValue key, NeValue value)
+{
+    NeValue kv = NeCreateCons(N, key, value);
+    return NE_BOX(kv, NE_PT_KEYVALUE);
+}
+
 NeValue NeGetKey(NeValue kv)
 {
     return NE_IS_KEYVALUE(kv) ? NE_HEAD(kv) : 0;
@@ -3137,6 +3158,9 @@ typedef enum _NeToken
     NeToken_OpenSeq,            // {
     NeToken_CloseSeq,           // }
     NeToken_Quote,              // '
+    NeToken_Backquote,          // `
+    NeToken_Comma,              // ,
+    NeToken_Splice,             // ,@
 
     // Keywords
     NeToken_KEYWORDS,
@@ -3952,6 +3976,20 @@ static NeToken NextToken(NeLexRef L)
     else if ('{' == c)      NE_LEX_RETURN(NeToken_OpenSeq);
     else if ('}' == c)      NE_LEX_RETURN(NeToken_CloseSeq);
     else if ('\'' == c)     NE_LEX_RETURN(NeToken_Quote);
+    else if ('`' == c)      NE_LEX_RETURN(NeToken_Backquote);
+    else if (',' == c)
+    {
+        c = NextChar(L);
+        if ('@' == c)
+        {
+            NE_LEX_RETURN(NeToken_Splice);
+        }
+        else
+        {
+            UngetChar(L);
+            NE_LEX_RETURN(NeToken_Comma);
+        }
+    }
 
     //----------------------------------------------------------------------------------------------------
     // If we've reached this point, we don't know what the token is
@@ -4149,6 +4187,11 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
                 case NE_C_UNDEFINED:    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "undefined" : "");
                 case NE_C_QUOTE:        return FormatScratch(N, "'");
                 case NE_C_LAMBDA:       return FormatScratch(N, "->");
+                case NE_C_MACROSYM:     return FormatScratch(N, "=>");
+                case NE_C_BACKQUOTE:    return FormatScratch(N, "`");
+                case NE_C_COMMA:        return FormatScratch(N, ",");
+                case NE_C_SPLICE:       return FormatScratch(N, ",@");
+                case NE_C_COLON:        return FormatScratch(N, ":");
                 }
             }
             return FormatScratch(N, "<undefined>");
@@ -4399,11 +4442,11 @@ NeString NeGetError(Nerd N)
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken, NE_OUT NeValue* result);
+static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken, NeValue env, NE_OUT NeValue* result);
 
 // Interpret a token and convert it to a NeValue value.
 //
-static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue* result)
+static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NeValue env, NE_OUT NeValue* result)
 {
     const char* start = lex->mStartToken;
     const char* end = lex->mEndToken;
@@ -4438,19 +4481,35 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue
         break;
 
     case NeToken_OpenList:
-        if (!ReadExpressions(N, lex, NeToken_CloseList, result)) return NE_NO;
+        if (!ReadExpressions(N, lex, NeToken_CloseList, env, result)) return NE_NO;
         break;
 
     case NeToken_OpenTable:
-        if (!ReadExpressions(N, lex, NeToken_CloseTable, result)) return NE_NO;
+        if (!ReadExpressions(N, lex, NeToken_CloseTable, env, result)) return NE_NO;
         break;
 
     case NeToken_OpenSeq:
-        if (!ReadExpressions(N, lex, NeToken_CloseSeq, result)) return NE_NO;
+        if (!ReadExpressions(N, lex, NeToken_CloseSeq, env, result)) return NE_NO;
         break;
 
     case NeToken_Quote:
         *result = NE_QUOTE_VALUE;
+        break;
+
+    case NeToken_Backquote:
+        *result = NE_BACKQUOTE_VALUE;
+        break;
+
+    case NeToken_Comma:
+        *result = NE_COMMA_VALUE;
+        break;
+
+    case NeToken_Splice:
+        *result = NE_SPLICE_VALUE;
+        break;
+
+    case NeToken_Colon:
+        *result = NE_COLON_VALUE;
         break;
 
     case NeToken_Error:
@@ -4498,9 +4557,10 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NE_OUT NeValue
 }
 
 // Reads a series of tokens that terminates with a specific one and creates a list out of it.
+// The environment is provided for executing macros and comma expansions.
 //
 static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken,
-    NE_OUT NeValue* result)
+    NeValue env, NE_OUT NeValue* result)
 {
     NeValue root = 0, lastCell = 0;
     NeValue elem;
@@ -4568,40 +4628,7 @@ static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken,
             LexError(lex, "Unterminated expression found.");
             return NE_NO;
         }
-        else if (NeToken_Colon == token)
-        {
-            NeValue key, value;
-
-            // Handle key/value syntax (i.e. key:value).  If there is no last cell or the next token
-            // is the terminating token or EOF we have invalid syntax.  We must have had a previous
-            // token to interpret and a following one.
-            if (!lastCell)
-            {
-                LexError(lex, "Invalid key/value expression found without a key.");
-                return NE_NO;
-            }
-
-            key = NE_HEAD(lastCell);
-
-            // Grab next token and interpret it.
-            token = NextToken(lex);
-            if (NeToken_EOF == token || terminatingToken == token)
-            {
-                LexError(lex, "Invalid key/value expression found without a value.");
-                return NE_NO;
-            }
-            if (!InterpretToken(N, lex, token, &value)) return NE_NO;
-
-            // Amend the data structures to tuen the key value at the end of the list to a key/value
-            // at the end of the list.
-            value = NeCreateCons(N, key, value);
-            if (!value) return NE_NO;
-            value = NE_BOX(value, NE_PT_KEYVALUE);
-
-            NE_HEAD(lastCell) = value;
-            continue;
-        }
-        else if (!InterpretToken(N, lex, token, &elem))
+        else if (!InterpretToken(N, lex, token, env, &elem))
         {
             return NE_NO;
         }
@@ -4611,188 +4638,289 @@ static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken,
     }
 }
 
-// Transform a code list into the final version by processing reader macros.
-//
-static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
+static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList);
+
+// This function returns how many following elements to advance
+static NeBool TransformElement(Nerd N, NeValue input, NE_OUT NeValueRef result)
 {
-    NeValue scan = *codeList;
-    NeValue last = 0;
+    NeBool success = NE_YES;
 
 #if NE_DEBUG_TRANSFORM
-    NeDebugOutValue(N, "TRANSFORM", scan);
+    NeDebugOutValue(N, "TRANSFORM ELEM", input);
 #endif
 
-    while (scan != 0)
+    if (NE_IS_CELL(input) ||
+        NE_IS_SEQUENCE(input))
     {
-        // Handle list or sequence
-        if (NE_HEAD(scan) && 
-            (NE_IS_CELL(NE_HEAD(scan)) ||
-             NE_IS_SEQUENCE(NE_HEAD(scan))))
+        input = NE_BOX(input, NE_PT_CELL);
+        success = Transform(N, result);
+    }
+    else if (NE_IS_READER_UNARY_OP(input) || NE_IS_READER_BINARY_OP(input))
+    {
+        success = NeError(N, "Read error at '%s'", NeToString(N, input, NE_CONVERT_MODE_REPL));
+    }
+    else
+    {
+        *result = input;
+    }
+
+    return success;
+}
+
+// This function transforms a unary operation
+static NeBool TransformUnary(Nerd N, NeValue op, NeValue param1, NE_OUT NeValueRef result)
+{
+    NeBool success = NE_YES;
+
+#if NE_DEBUG_TRANSFORM
+    NeDebugOutValue(N, "TRANSFORM UNARY", op);
+    NeDebugOutValue(N, "             P1", param1);
+#endif
+
+    if (NE_IS_QUOTE(op) || NE_IS_BACKQUOTE(op))
+    {
+        // Handle 'exp or `exp
+        success = TransformElement(N, param1, &param1);
+        if (success)
         {
-            NeBool isSeq = NE_IS_SEQUENCE(NE_HEAD(scan));
-            NeValue seq = NE_HEAD(scan) & ~0xfull;
-            if (!Transform(N, &seq)) return NE_NO;
-            NE_HEAD(scan) = NE_BOX(seq, isSeq ? NE_PT_SEQUENCE : NE_PT_CELL);
-            last = scan;
-            scan = NE_TAIL(scan);
-        }
-        // Handle quote
-        else if (NE_HEAD(scan) == NE_QUOTE_VALUE)
-        {
-            NeValue quoteSym = NeCreateSymbol(N, "quote", 5);
-            NeValue quoteList = 0;
-            NeValue arg = NE_TAIL(scan);
-
-            if (0 == arg)
+            NeValue sym = NE_IS_QUOTE(op) ? NeCreateSymbol(N, "quote", 5) : NeCreateSymbol(N, "backquote", 9);
+            if (sym)
             {
-                return NeError(N, "Invalid quote.");
-            }
-
-            if (!quoteSym) return NeOutOfMemory(N);
-
-            quoteList = NeCreateCons(N, quoteSym, arg);
-
-            NE_HEAD(scan) = quoteList;
-            NE_TAIL(scan) = NE_TAIL(arg);
-            NE_TAIL(arg) = 0;
-            last = scan;
-            scan = NE_TAIL(scan);
-        }
-        // Handle lambda
-        else if (NE_HEAD(scan) == NE_LAMBDA_VALUE || NE_HEAD(scan) == NE_MACROSYM_VALUE)
-        {
-            NeValue body = NE_TAIL(scan);
-
-            if (0 == last)
-            {
-                return NeError(N, "Lambda defined with no parameters.");
-            }
-
-            if (0 == NE_TAIL(scan))
-            {
-                return NeError(N, "Lambda has no body.");
-            }
-
-            if (!NE_IS_CELL(NE_HEAD(last)))
-            {
-                // The parameter before -> is not a list.  It could be a key-value
-                // that has a value of a list
-                NeValue kv = NE_HEAD(last);
-                if (!(NE_IS_KEYVALUE(kv) && NE_IS_CELL(NeGetValue(kv))))
+                NeValue cells = NeCreateList(N, 2);
+                NE_1ST(cells) = sym;
+                NE_2ND(cells) = param1;
+                if (cells)
                 {
-                    return NeError(N, "Invalid parameters for lambda.");
-                }
-            }
-
-            // Transform the body first
-            if (!Transform(N, &body)) return NE_NO;
-
-            // OK, we've verified the (params...) -> body form.  Let's construct
-            // a (fn (params...) body) expression, while optimising out a sequence.
-            // This means that instead of a (fn (params...) { body... }) form, we
-            // generate (fn (params...) body...) form instead.
-            {
-                // We need to transform ->C0->C1->C2-> to:
-                //
-                //      ->C0->
-                //        |
-                //        V
-                //        C3->C1->C2a->C2b->...  or C3->C0->C2
-                //
-                // Where:
-                //
-                //      C0 = params then later (fn...)
-                //      C1 = ->, then later params
-                //      C2 = body (a, b, ... is the body in a sequence)
-                //      C3 = fn symbol
-                //
-                NeBool isMacro = NE_HEAD(scan) == NE_MACROSYM_VALUE;
-                NeValue C0 = last;
-                NeValue C1 = scan;
-                NeValue C2 = NE_TAIL(C1);
-                NeValue C3 = NeCreateCons(N, NeCreateSymbol(N, isMacro ? "macro" : "fn", isMacro ? 5 : 2), C1);
-                NeValue body = C2;
-                NeValue lastBody = C2;
-                NeValue next = NE_TAIL(C2);
-                NeBool keyValueMode = NE_NO;
-                
-                // TODO-CRITICAL: Make sure body of function is transformed.
-                scan = next;
-
-                if (NE_IS_KEYVALUE(NE_HEAD(C0)))
-                {
-                    // The lambda is part of a key/value expression.  We should read:
-                    //
-                    //      key: lambda
-                    //
-                    // rather than
-                    //
-                    //      key: params -> body
-                    //
-                    // We need to fix this before conversion.  Currently C0 points to
-                    // the cell that holds the key-value.  It needs to point to the
-                    // parameters, which should point to the lambda arrow.
-                    NeValue params = NeGetValue(NE_HEAD(C0));
-                    NeValue kv = C0;
-                    C0 = NeCreateCons(N, params, C1);
-                    NE_TAIL(NE_HEAD(kv)) = C0;
-                    NE_TAIL(kv) = next;
-                    next = 0;
-                    keyValueMode = NE_YES;
-                }
-
-                if (0 == NE_HEAD(C3)) return NeOutOfMemory(N);
-
-                if (NE_IS_SEQUENCE(NE_HEAD(C2)))
-                {
-                    // We have a (...) -> { ... } form, so we need to make sure that
-                    // the final expression is (fn (...) ...) and not (fn (...) { ... }).
-                    lastBody = body = NE_HEAD(C2);
-                    while (NE_TAIL(lastBody)) lastBody = NE_TAIL(lastBody);
-                }
-
-                // No we reconstruct the cell structure
-                NE_HEAD(C1) = NE_HEAD(C0);      // P -> B  ==>  P P B
-                NE_TAIL(C1) = body;             // P P B  ==> P P B...
-                NE_TAIL(lastBody) = 0;
-                NE_TAIL(C0) = next;             // P ...
-
-                if (keyValueMode)
-                {
-                    // <sym>: (fn P B...) ...
-                    NE_TAIL(NE_HEAD(last)) = C3;
-                    NeRecycleCons(N, C0);
+                    *result = cells;
                 }
                 else
                 {
-                    NE_HEAD(C0) = C3;               // ==> ... (fn P B...) ...
+                    success = NE_NO;
                 }
+            }
+            else
+            {
+                success = NE_NO;
+            }
+        }
+    }
+    else
+    {
+        // This should never happen!
+        success = NeError(N, "INTERNAL READER ERROR: Unsupported operator!");
+    }
+
+    return success;
+}
+
+static NeBool TransformBinary(Nerd N, NeValue op, NeValue param1, NeValue param2, NE_OUT NeValueRef result)
+{
+    NeBool success = NE_YES;
+
+#if NE_DEBUG_TRANSFORM
+    NeDebugOutValue(N, "TRANSFORM BINARY", op);
+    NeDebugOutValue(N, "              P1", param1);
+    NeDebugOutValue(N, "              P2", param2);
+#endif
+
+    if (NE_IS_LAMBDA(op) || NE_IS_MACROSYM(op))
+    {
+        NeValue fnSym = NE_IS_LAMBDA(op) ? NeCreateSymbol(N, "fn", 2) : NeCreateSymbol(N, "macro", 5);
+
+        if (!NE_IS_CELL(param1))
+        {
+            return NeError(N, "Invalid parameters for lambda.");
+        }
+
+        if (fnSym)
+        {
+            if (NE_IS_SEQUENCE(param2))
+            {
+                // We need to convert "->/=> (...) {...}" into (fn/macro (...) ...)
+                *result = NeCreateList(N, 2);
+                if (*result)
+                {
+                    NE_2ND(*result) = param1;
+                    NE_TAIL(NE_TAIL(*result)) = NE_BOX(param2, NE_PT_CELL);
+                }
+                else
+                {
+                    success = NeOutOfMemory(N);
+                }
+            }
+            else
+            {
+                // We need to convert "->/=> (...) *" into (fn/macro (...) *)
+                *result = NeCreateList(N, 3);
+                if (*result)
+                {
+                    NE_2ND(*result) = param1;
+                    NE_3RD(*result) = param2;
+                }
+                else
+                {
+                    success = NeOutOfMemory(N);
+                }
+            }
+            if (success)
+            {
+                NE_1ST(*result) = fnSym;
             }
         }
         else
         {
-            last = scan;
-            scan = NE_TAIL(scan);
+            success = NeOutOfMemory(N);
+        }
+    }
+    else if (NE_IS_COLON(op))
+    {
+        *result = NeCreateKeyValue(N, param1, param2);
+        if (!*result)
+        {
+            success = NeOutOfMemory(N);
         }
     }
 
+    return success;
+}
+
+static NeBool TransformBinaries(Nerd N, NeValue scan)
+{
+#if NE_DEBUG_TRANSFORM
+    NeValue cells = scan;
+    NeDebugOutValue(N, "TRANSFORM(2)", scan);
+#endif
+
+    while (scan != 0)
+    {
+        NeValue elem = NE_HEAD(scan);
+        if (NE_IS_READER_BINARY_OP(elem))
+        {
+            NeValue p1Cell, p2Cell, cont, p1, p2;
+
+            if (!TransformBinaries(N, NE_TAIL(scan))) return NE_NO;
+
+            p1Cell = NE_TAIL(scan);
+            p2Cell = NE_TAIL(p1Cell);
+            cont = NE_TAIL(p2Cell);
+            p1 = NE_2ND(scan);
+            p2 = NE_3RD(scan);
+            NeRecycleCons(N, p1Cell);
+            NeRecycleCons(N, p2Cell);
+
+            if (!TransformBinary(N, elem, p1, p2, &NE_HEAD(scan))) return NE_NO;
+            NE_TAIL(scan) = cont;
+        }
+
+        scan = NE_TAIL(scan);
+    }
+
+#if NE_DEBUG_TRANSFORM
+    NeDebugOutValue(N, "      OUT(2)", cells);
+#endif
+
     return NE_YES;
+}
+
+// Transform a code list into the final version by processing reader macros.
+//
+// Supported transformations:
+//
+//          SOURCE                              TRANSFORMATION
+//      1)  (...) or {...} or [...]             transform elements inside
+//      2)  '(...)                              (quote (...))
+//      3)  `(...)                              (quote (...)) but enable comma transformations
+//      4)  (...) -> *                          (fn (...) *)
+//      5)  (...) -> { ... }                    (fn (...) ...)
+//      6)  (...) => *                          (macro (...) *)
+//      7)  (...) => { ... }                    (macro (...) ...)
+//      8)  a : b                               Transform a, transform b and generate key-value
+//      9)  , exp                               Evaluate exp and replace (only if comma transformations are on)
+//      10) ,@ exp                              Evaluate exp, check if it list and insert (only if comma transformations are on)
+//
+
+static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
+{
+    NeValue scan = *codeList;
+    NeValue last = 0;
+    NeValue earliestBinary = 0;
+
+#if NE_DEBUG_TRANSFORM
+    NeDebugOutValue(N, "TRANSFORM", *codeList);
+#endif
+
+    // STEP 1: Transform unary & prefix-ify binary operations
+    while (scan != 0)
+    {
+        NeValue elem = NE_HEAD(scan);
+
+        if (NE_IS_READER_UNARY_OP(elem))
+        {
+            NeValue op1Cell = NE_TAIL(scan);
+            NeValue cont = op1Cell ? NE_TAIL(op1Cell) : 0;
+            NeValue op1 = 0;
+
+            if (!op1Cell)
+            {
+                return NeError(N, "Missing argument for %s.", NeToString(N, elem, NE_CONVERT_MODE_REPL));
+            }
+            op1 = NE_HEAD(op1Cell);
+            NeRecycleCons(N, op1Cell);
+            if (!TransformUnary(N, elem, op1, &NE_HEAD(scan))) return NE_NO;
+            NE_TAIL(scan) = cont;
+        }
+        else if (NE_IS_READER_BINARY_OP(elem))
+        {
+            // For binary operations we just switch the elements around for later processing.
+            NeValue op2Cell = 0;
+
+            if (!last)
+            {
+                return NeError(N, "Missing operand before the %s.", NeToString(N, elem, NE_CONVERT_MODE_REPL));
+            }
+            op2Cell = NE_TAIL(scan);
+            if (!op2Cell)
+            {
+                return NeError(N, "Missing operand after the %s.", NeToString(N, elem, NE_CONVERT_MODE_REPL));
+            }
+            NE_HEAD(scan) = NE_HEAD(last);
+            NE_HEAD(last) = elem;
+
+            if (!earliestBinary)
+            {
+                earliestBinary = last;
+            }
+        }
+        else
+        {
+            if (!TransformElement(N, elem, &NE_HEAD(scan))) return NE_NO;
+        }
+
+        last = scan;
+        scan = NE_TAIL(scan);
+    }
+
+    // STEP 2: Transform prefixed binary operations
+    return TransformBinaries(N, earliestBinary);
 }
 
 // Read a buffer and convert it into a code-list (a list of values).  The most common use of this
 // function is to prepare code for the compiler, but you can use this to parse data as well.
 //
+// TODO: Add env parameter to NeRead
+//
 NeBool NeRead(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValue* codeList)
 {
     NeBool success;
     NeLex lex;
+    NeValue macroEnv = G(mGlobalEnv);
 
     NE_ASSERT(N);
     NE_ASSERT(str);
     NE_ASSERT(codeList);
 
     InitLex(N, source, str, size, &lex);
-    success = ReadExpressions(N, &lex, NeToken_EOF, codeList);
+    success = ReadExpressions(N, &lex, NeToken_EOF, macroEnv, codeList);
     DestroyLex(&lex);
     if (success)
     {
@@ -5085,9 +5213,8 @@ static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OU
     {
         NeOut(N, "--> [%p] ", environment);
     }
-    NePushValue(N, expression);
-    NeToString(N, -1, NE_CONVERT_MODE_REPL);
-    NeOut(N, "%s\n", NePopString(N));
+    
+    NeOut(N, "%s\n", NeToString(N, expression, NE_CONVERT_MODE_REPL));
 
 #endif // NE_DEBUG_TRACE_EVAL
 
@@ -5151,9 +5278,7 @@ static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OU
     NeOut(N, "<-- ");
     if (success)
     {
-        NePushValue(N, *result);
-        NeToString(N, -1, NE_CONVERT_MODE_REPL);
-        NeOut(N, "%s\n", NePopString(N));
+        NeOut(N, "%s\n", NeToString(N, *result, NE_CONVERT_MODE_REPL));
     }
     else
     {
@@ -5335,6 +5460,13 @@ static NeBool N_Macro(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef resul
 }
 
 static NeBool N_Quote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
+    *result = NE_HEAD(args);
+    return NE_YES;
+}
+
+static NeBool N_Backquote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
     *result = NE_HEAD(args);
@@ -5804,6 +5936,7 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("fn", N_Fn)
         NE_NATIVE("macro", N_Macro)
         NE_NATIVE("quote", N_Quote)
+        NE_NATIVE("backquote", N_Backquote)
         NE_NATIVE("cond", N_Cond)
         NE_NATIVE("list", N_List)
         NE_NATIVE("set!", N_SetBang)

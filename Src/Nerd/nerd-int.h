@@ -33,7 +33,7 @@ extern "C"
 // Convert a NeValue to a NeCell pointer
 #define NE_CELL(v) NE_CAST(v, NeCell)
 
-// Converts an address and a Nerd Nype (4 bit code) into a NeValue
+// Converts an address and a Nerd type (4 bit code) into a NeValue
 #define NE_BOX(p, tt) (((NeUInt)(p) & ~0xfull) | (tt))
 
 // Gets the type of a TiValue
@@ -162,8 +162,8 @@ typedef enum _NeType
     NeType_Character,
 
     // Constants
-    NeType_Quote,
-    NeType_Lambda,
+    NeType_Comma,
+    NeType_Splice,
 
     NeType_COUNT
 }
@@ -197,6 +197,10 @@ NeType;
 #define NE_C_QUOTE          1
 #define NE_C_LAMBDA         2
 #define NE_C_MACROSYM       3
+#define NE_C_BACKQUOTE      4
+#define NE_C_COMMA          5
+#define NE_C_SPLICE         6
+#define NE_C_COLON          7
 
 // Type checking macros
 #define NE_IS_PRIMARY_TYPE(v, tt)		(NE_TYPEOF(v) == (tt))
@@ -223,6 +227,12 @@ NeType;
 #define NE_IS_QUOTE(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_QUOTE))
 #define NE_IS_LAMBDA(v)                 (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_LAMBDA))
 #define NE_IS_MACROSYM(v)               (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_MACROSYM))
+#define NE_IS_BACKQUOTE(v)              (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_BACKQUOTE))
+#define NE_IS_COMMA(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_COMMA))
+#define NE_IS_SPLICE(v)                 (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_SPLICE))
+#define NE_IS_COLON(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_COLON))
+#define NE_IS_READER_UNARY_OP(v)        (NE_IS_QUOTE(v) || NE_IS_BACKQUOTE(v))
+#define NE_IS_READER_BINARY_OP(v)       (NE_IS_LAMBDA(v) || NE_IS_MACROSYM(v) || NE_IS_COLON(v))
 #define NE_IS_BOOLEAN(v)                NE_IS_EXTENDED_TYPE((v), NE_XT_BOOLEAN)
 #define NE_IS_NATIVE(v)                 NE_IS_EXTENDED_TYPE((v), NE_XT_NATIVE)
 #define NE_IS_CHARACTER(v)              NE_IS_EXTENDED_TYPE((v), NE_XT_CHARACTER)
@@ -238,6 +248,10 @@ NeType;
 #define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? (NeUInt)1 : (NeUInt)0))
 #define NE_YES_VALUE                    NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 1)
 #define NE_NO_VALUE                     NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 0)
+#define NE_BACKQUOTE_VALUE              NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_BACKQUOTE)
+#define NE_COMMA_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_COMMA)
+#define NE_SPLICE_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_SPLICE)
+#define NE_COLON_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_COLON)
 
 // Values of guaranteed bit size - checked by NeOpen()
 typedef int8_t NeInt8;
@@ -440,6 +454,10 @@ NeValueRef NeNewTableSlot(Nerd N, NeValue table, NeValue key);
 //----------------------------------------------------------------------------------------------------
 // Key/value management
 //----------------------------------------------------------------------------------------------------
+
+// Create a key/value pair.  Will return 0 if there is no memory.
+//
+NeValue NeCreateKeyValue(Nerd N, NeValue key, NeValue value);
 
 // Extract the key from a key/value pair.  If the value is not a key/value, the function will return
 // 0.

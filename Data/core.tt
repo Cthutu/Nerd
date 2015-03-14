@@ -1,4 +1,8 @@
 #
+# Bugs
+#
+
+#
 # Literals
 #
 Literal.String					"Hello!"													"Hello!"
@@ -10,6 +14,7 @@ Assignment.String				x: "Hello World!" x											"Hello World!"
 Assignment.Symbol				x:42 y:x y													42
 Assignment.Float				foo:3.14 foo												3.14
 Assignment.Ratio				x:-2/10 x													-1/5
+Assignment.Quote				x:'(1 2 3) 1 x												(1 2 3)
 
 #
 # Arithmetic
@@ -171,7 +176,7 @@ SubString.TooLarge				("Hello" 2 5)												FAIL:Invalid size parameter for s
 # Quoting
 #
 
-Reader.Quote.NoValue			'															FAIL:Invalid quote.
+Reader.Quote.NoValue			'															FAIL:Missing argument for '.
 Reader.Quote.List				'(1 2 3)													(1 2 3)
 Reader.Quote.Symbol				'a															a
 Reader.Quote.SubList			('(1 2 3) 2)												3
@@ -185,10 +190,10 @@ Reader.Lambda.Basic				(() -> 42)													42
 Reader.Lambda.Seq				(() -> { a: 6 b: 7 (* a b)})								42
 Reader.Lambda.Params			add:(a b) -> (+ a b) (add 3 6)								9
 Reader.Lambda.ParamSeq			add:(a b) -> { c:a d:b (+ c d) } (add 6 7)					13
-Reader.Lambda.NoParams			-> 42														FAIL:Lambda defined with no parameters.
-Reader.Lambda.NoBody			() ->														FAIL:Lambda has no body.
+Reader.Lambda.NoParams			-> 42														FAIL:Missing operand before the ->.
+Reader.Lambda.NoBody			() ->														FAIL:Missing operand after the ->.
 Reader.Lambda.BadParams			42 -> 42													FAIL:Invalid parameters for lambda.
-Reader.Lambda.Nothing			->															FAIL:Lambda defined with no parameters.
+Reader.Lambda.Nothing			->															FAIL:Missing operand before the ->.
 Reader.Lambda.Recursive			((() -> () -> 42))											42
 Reader.Lambda.Complex			x:() -> { y:() -> 42 y } ((x))								42
 
@@ -260,9 +265,14 @@ BI.List.Assign.1				(list a:5)													(5)
 BI.List.Assign.2				(list a:5) a												5
 
 #
+# Backquote
+#
+Backquote.Simple				`(a b c)													(a b c)
+
+#
 # Macros
 #
 
-#Macro.If						if: (?cond ?then ?else) => `(cond ?cond yes: ?then else: ?else) (if yes yes no)		yes
-#Macro.If						if: (?cond ?then ?else) => `(cond ?cond yes: ?then else: ?else) (if no yes no)		no
+#Macro.If						if: (?cond ?then ?else) => `(cond ,?cond yes: ,?then else: ,?else) (if yes yes no)		yes
+#Macro.If						if: (?cond ?then ?else) => `(cond ,?cond yes: ,?then else: ,?else) (if no yes no)		no
 
