@@ -2007,6 +2007,22 @@ NeUInt NeGetStringLength(Nerd N, NeValue v)
     }
 }
 
+NeInt NeCompareString(Nerd N, NeValue strValue, const char* cString, NeUInt size)
+{
+    NeStringInfoRef info = NE_CAST(strValue, NeStringInfo);
+    const char* str = info->mString;
+    while (*str != 0 && *cString != 0)
+    {
+        int diff = *str++ - *cString++;
+        if (diff)
+        {
+            return diff;
+        }
+    }
+
+    return *str - *cString;
+}
+
 //----------------------------------------------------------------------------------------------------{TABLE}
 //----------------------------------------------------------------------------------------------------
 // T A B L E S   M A N A G E M E N T
@@ -3364,6 +3380,7 @@ static void UngetChar(NeLexRef L)
 }
 
 #define NE_LEX_RETURN(token) return (L->mWsFound = NE_NO, L->mToken = (token))
+#define NE_LEX_WS_RETURN(token) return (L->mWsFound = NE_YES, L->mToken = (token))
 #define NE_LEX_ERROR(format, ...) NE_LEX_RETURN(LexError(L, format __VA_ARGS__))
 
 // Show an error while reading
@@ -3969,25 +3986,25 @@ static NeToken NextToken(NeLexRef L)
     // Check for punctuation
     //----------------------------------------------------------------------------------------------------
 
-    else if ('(' == c)      NE_LEX_RETURN(NeToken_OpenList);
-    else if (')' == c)      NE_LEX_RETURN(NeToken_CloseList);
-    else if ('[' == c)      NE_LEX_RETURN(NeToken_OpenTable);
-    else if (']' == c)      NE_LEX_RETURN(NeToken_CloseTable);
-    else if ('{' == c)      NE_LEX_RETURN(NeToken_OpenSeq);
-    else if ('}' == c)      NE_LEX_RETURN(NeToken_CloseSeq);
+    else if ('(' == c)      NE_LEX_WS_RETURN(NeToken_OpenList);
+    else if (')' == c)      NE_LEX_WS_RETURN(NeToken_CloseList);
+    else if ('[' == c)      NE_LEX_WS_RETURN(NeToken_OpenTable);
+    else if (']' == c)      NE_LEX_WS_RETURN(NeToken_CloseTable);
+    else if ('{' == c)      NE_LEX_WS_RETURN(NeToken_OpenSeq);
+    else if ('}' == c)      NE_LEX_WS_RETURN(NeToken_CloseSeq);
     else if ('\'' == c)     NE_LEX_RETURN(NeToken_Quote);
-    else if ('`' == c)      NE_LEX_RETURN(NeToken_Backquote);
+    else if ('`' == c)      NE_LEX_WS_RETURN(NeToken_Backquote);
     else if (',' == c)
     {
         c = NextChar(L);
         if ('@' == c)
         {
-            NE_LEX_RETURN(NeToken_Splice);
+            NE_LEX_WS_RETURN(NeToken_Splice);
         }
         else
         {
             UngetChar(L);
-            NE_LEX_RETURN(NeToken_Comma);
+            NE_LEX_WS_RETURN(NeToken_Comma);
         }
     }
 
@@ -5020,10 +5037,47 @@ static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, N
     while (argNames && argValues)
     {
         NeValue result = 0;
-        if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
-        if (!Assign(N, NE_HEAD(argNames), result, env, NE_YES)) return NE_NO;
+        NeValue argName = NE_HEAD(argNames);
+
+        // Check for argument keywords:
+        //
+        //      :rest   The following symbol holds the rest of the arguments as a list.
+        //
+        if (NE_IS_KEYWORD(argName))
+        {
+            if (0 == NeCompareString(N, argName, "rest", 4))
+            {
+                argNames = NE_TAIL(argNames);
+                if (argNames)
+                {
+                    NeValue restValue = 0, lastCell = 0;
+                    argName = NE_HEAD(argNames);
+
+                    while (argValues)
+                    {
+                        if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
+                        if (!AppendItem(N, &restValue, &lastCell, result)) return NeOutOfMemory(N);
+                        argValues = NE_TAIL(argValues);
+                    }
+                    if (!Assign(N, argName, restValue, env, NE_YES)) return NE_NO;
+                }
+                else
+                {
+                    return NeError(N, "No parameter name following the :rest keyword.");
+                }
+            }
+            else
+            {
+                return NeError(N, "Invalid keyword in parameter list.");
+            }
+        }
+        else
+        {
+            if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
+            if (!Assign(N, argName, result, env, NE_YES)) return NE_NO;
+            argValues = NE_TAIL(argValues);
+        }
         argNames = NE_TAIL(argNames);
-        argValues = NE_TAIL(argValues);
     }
 
     if (argNames)
@@ -5193,6 +5247,12 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
     default:
         return NeError(N, "Invalid procedure.");
     }
+}
+
+NeBool NeApply(Nerd N, NeValue exp, NeValue args, NeValue environment, NE_OUT NeValueRef result)
+{
+    NeTableRef env = NE_CAST(environment, NeTable);
+    return Apply(N, exp, args, env, result);
 }
 
 static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OUT NeValueRef result)
@@ -5437,7 +5497,7 @@ static NeBool N_Fn(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     for (scan = args; scan; scan = NE_TAIL(scan), ++index)
     {
         NeValue arg = NE_HEAD(scan);
-        if (!NE_IS_SYMBOL(arg))
+        if (!NE_IS_SYMBOL(arg) && !NE_IS_KEYWORD(arg))
         {
             return NeError(N, "Arguments declaration in lambda is invalid.  Argument %u must be a symbol.", index);
         }
@@ -5551,6 +5611,49 @@ static NeBool N_SetBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef res
     }
 
     return NE_YES;
+}
+
+//----------------------------------------------------------------------------------------------------
+// Sequences
+//----------------------------------------------------------------------------------------------------
+
+static NeBool N_Length(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue seq;
+    NeUInt len = 0;
+
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
+    NE_EVAL(N, NE_1ST(args), env, seq);
+
+    switch (NeGetType(seq))
+    {
+    case NeType_Nil:
+        break;
+
+    case NeType_List:
+    case NeType_Sequence:
+        while (seq)
+        {
+            seq = NE_TAIL(seq);
+            ++len;
+        }
+        break;
+
+    case NeType_Symbol:
+    case NeType_String:
+    case NeType_Keyword:
+        {
+            NeStringInfoRef info = NE_CAST(seq, NeStringInfo);
+            len = info->mLength;
+        }
+        break;
+
+    default:
+        return NeError(N, "Cannot find the length of a value of type '%s'.", NeGetTypeName(NeGetType(seq)));
+    }
+
+    *result = NeCreateInteger(N, len);
+    return *result ? NE_YES : NE_NO;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -5925,6 +6028,82 @@ static NeBool N_Int(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     return *result ? NE_YES : NE_NO;
 }
 
+static NeBool N_Float(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue arg;
+    NeNumber number;
+    NeFloat f;
+
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
+    NE_EVAL(N, NE_1ST(args), env, arg);
+    NE_CHECK_ARG_TYPE(N, arg, 1, NeType_Number);
+
+    NeGetNumber(arg, &number);
+
+    switch (number.mNumType)
+    {
+    case NeNumberType_Integer:
+        f = (float)number.mInteger;
+        break;
+
+    case NeNumberType_Float:
+        *result = arg;
+        return NE_YES;
+
+    case NeNumberType_Ratio:
+        f = (NeFloat)number.mNumerator / (NeFloat)number.mDenominator;
+        break;
+    }
+
+    *result = NeCreateFloat(N, f);
+    return *result ? NE_YES : NE_NO;
+}
+
+//----------------------------------------------------------------------------------------------------
+// High-level functions
+//----------------------------------------------------------------------------------------------------
+
+static NeBool N_Apply(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue params = 0, func = 0;
+
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 2);
+    NE_EVAL(N, NE_1ST(args), env, params);
+    NE_CHECK_ARG_TYPE(N, params, 1, NeType_List);
+    NE_EVAL(N, NE_2ND(args), env, func);
+    
+    return NeApply(N, func, params, env, result);
+}
+
+static NeBool N_Reduce(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue list, func;
+    NeValue params = NeCreateList(N, 2);
+    NeValue elem, r;
+
+    if (!params) return NeOutOfMemory(N);
+
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 3);
+    NE_EVAL(N, NE_1ST(args), env, r);
+    NE_EVAL(N, NE_2ND(args), env, list);
+    NE_CHECK_ARG_TYPE(N, list, 2, NeType_List);
+    NE_EVAL(N, NE_3RD(args), env, func);
+
+    for (elem = NE_HEAD(list); list; list = NE_TAIL(list))
+    {
+        elem = NE_HEAD(list);
+        NE_1ST(params) = r;
+        NE_2ND(params) = elem;
+        if (!NeApply(N, func, params, env, &r)) return NE_NO;
+    }
+
+    NeRecycleCons(N, NE_TAIL(params));
+    NeRecycleCons(N, params);
+
+    *result = r;
+    return NE_YES;
+}
+
 //----------------------------------------------------------------------------------------------------
 // Standard natives registration
 //----------------------------------------------------------------------------------------------------
@@ -5933,32 +6112,40 @@ NeBool RegisterCoreNatives(Nerd N)
 {
     NeNativeInfo info[] = {
         // Core functions
-        NE_NATIVE("fn", N_Fn)
-        NE_NATIVE("macro", N_Macro)
-        NE_NATIVE("quote", N_Quote)
-        NE_NATIVE("backquote", N_Backquote)
-        NE_NATIVE("cond", N_Cond)
-        NE_NATIVE("list", N_List)
-        NE_NATIVE("set!", N_SetBang)
+        NE_NATIVE("fn", N_Fn)                   // (fn (args...) ...)
+        NE_NATIVE("macro", N_Macro)             // (macro (args...) ...)
+        NE_NATIVE("quote", N_Quote)             // (quote ...*)
+        NE_NATIVE("backquote", N_Backquote)     // (backquote ...*)
+        NE_NATIVE("cond", N_Cond)               // (cond exp1: value1...)
+        NE_NATIVE("list", N_List)               // (list v1 v2...)
+        NE_NATIVE("set!", N_SetBang)            // (set! source* value)
+
+        // Sequences
+        NE_NATIVE("length", N_Length)           // (length seq)
 
         // Arithmetic
-        NE_NATIVE("+", N_Add)
-        NE_NATIVE("-", N_Subtract)
-        NE_NATIVE("*", N_Multiply)
-        NE_NATIVE("/", N_Divide)
-        NE_NATIVE("%", N_Mod)
-        
+        NE_NATIVE("+", N_Add)                   // (+ n1 n2 ...)
+        NE_NATIVE("-", N_Subtract)              // (- n1 n2 ...)
+        NE_NATIVE("*", N_Multiply)              // (* n1 n2 ...)
+        NE_NATIVE("/", N_Divide)                // (/ n1 n2 ...)
+        NE_NATIVE("%", N_Mod)                   // (% n1 n2)
+
         // Comparatives
-        NE_NATIVE("<", N_LessThan)
-        NE_NATIVE("<=", N_LessThanEqual)
-        NE_NATIVE(">", N_GreaterThan)
-        NE_NATIVE(">=", N_GreaterThanEqual)
-        NE_NATIVE("==", N_Equal)
-        NE_NATIVE("!=", N_NotEqual)
+        NE_NATIVE("<", N_LessThan)              // (< v1 v2 ...)
+        NE_NATIVE("<=", N_LessThanEqual)        // (<= v1 v2 ...)
+        NE_NATIVE(">", N_GreaterThan)           // (> v1 v2 ...)
+        NE_NATIVE(">=", N_GreaterThanEqual)     // (>= v1 v2 ...)
+        NE_NATIVE("==", N_Equal)                // (== v1 v2 ...)
+        NE_NATIVE("!=", N_NotEqual)             // (!= v1 v2 ...)
 
         // Conversions
-        NE_NATIVE("str", N_Str)
-        NE_NATIVE("int", N_Int)
+        NE_NATIVE("str", N_Str)                 // (str v1 v2 ...)
+        NE_NATIVE("int", N_Int)                 // (int n)
+        NE_NATIVE("float", N_Float)             // (float n)
+
+        // High-level functions
+        NE_NATIVE("apply", N_Apply)             // (apply list func)
+        NE_NATIVE("reduce", N_Reduce)           // (reduce start list func)
 
         // The end!
         NE_END_NATIVES

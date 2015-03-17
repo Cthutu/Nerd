@@ -1,0 +1,6 @@
+;; Function to calculate the average of a list of numbers
+
+average: (:rest list) ->
+	(float (/ (apply list +) (length list)))
+
+(average 23 54 32)

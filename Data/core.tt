@@ -1,11 +1,13 @@
 #
 # Bugs
 #
+Literal.KeywordInList			'(:test)													(:test)
 
 #
 # Literals
 #
 Literal.String					"Hello!"													"Hello!"
+Literal.KeywordInList			'(:test)													(:test)
 
 #
 # Assignments
@@ -263,11 +265,25 @@ BI.List.Multiple				(list 1 2 3)												(1 2 3)
 BI.List.Complex					(list 1 (- 5 (+ 1 2)) 3)									(1 2 3)
 BI.List.Assign.1				(list a:5)													(5)
 BI.List.Assign.2				(list a:5) a												5
+BI.Int.Integer					(int 43)													43
+BI.Int.Float					(int 5.67)													5
+BI.Int.Ratio 					(int 12/5)													2
+BI.Float.Integer				(float 4)													4
+BI.Float.Float					(float 3.14)												3.14
+BI.Float.Ratio					(float 3/4)													0.75
+BI.Length.Simple				(length '(1 2 3))											3
+BI.Length.Nil					(length '())												0
+BI.Length.String				(length "Hello")											5
+BI.Length.Sequence				(length '{ 1 2 3 })											3
+BI.Length.Keyword				(length :test)												4
+BI.Length.Symbol				(length 'test-sym)											8
 
 #
 # Backquote
 #
 Backquote.Simple				`(a b c)													(a b c)
+Backquote.Comma					x:4 `(a ,x x)												(a 4 x)
+Backquote.BadComma				x:4 '(a ,x x)												FAIL:
 
 #
 # Macros
@@ -276,3 +292,9 @@ Backquote.Simple				`(a b c)													(a b c)
 #Macro.If						if: (?cond ?then ?else) => `(cond ,?cond yes: ,?then else: ,?else) (if yes yes no)		yes
 #Macro.If						if: (?cond ?then ?else) => `(cond ,?cond yes: ,?then else: ,?else) (if no yes no)		no
 
+#
+# File tests
+#
+
+FileTest.String					@filetest.string.n											"123"
+FileTest.Average				@filetest.average.n											36.3333

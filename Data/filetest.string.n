@@ -1,0 +1,3 @@
+;; Simple test for the unit test system
+
+(str (list 1 2 3))

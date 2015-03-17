@@ -417,6 +417,10 @@ NeString NeGetString(NeValue v);
 //
 NeUInt NeGetStringLength(Nerd N, NeValue v);
 
+// Compare a string, symbol or keyword value with a C string.  Keywords will not compare the initial
+// colons.
+NeInt NeCompareString(Nerd N, NeValue strValue, const char* cString, NeUInt size);
+
 //----------------------------------------------------------------------------------------------------
 // Symbol management
 //----------------------------------------------------------------------------------------------------
@@ -535,6 +539,10 @@ NeBool NeCompile(Nerd N, NeValue sequence, NeValueRef blockValue);
 // and result will be unchanged.
 //
 NeBool NeEval(Nerd N, NeValue expression, NeValue environment, NE_OUT NeValueRef result);
+
+// Apply an expression to some args in the given environment.
+//
+NeBool NeApply(Nerd N, NeValue exp, NeValue args, NeValue environment, NE_OUT NeValueRef result);
 
 //----------------------------------------------------------------------------------------------------
 // Natives

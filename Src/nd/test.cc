@@ -4,6 +4,7 @@
 #include <nerd-int.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef struct _TestInfo
 {
@@ -122,6 +123,38 @@ void TestFail(TestInfoRef T, const char* testName, const char* code, const char*
 }
 
 //----------------------------------------------------------------------------------------------------
+// File loading
+//----------------------------------------------------------------------------------------------------
+
+static char* LoadCode(const char* name)
+{
+    FILE* f;
+    size_t length = 0;
+    char* code = 0;
+
+    f = fopen(name, "rb");
+    if (f)
+    {
+        if (!fseek(f, 0, SEEK_END)) {
+            length = ftell(f);
+            fseek(f, 0, SEEK_SET);
+        }
+
+        code = (char *)malloc(length + 1);
+        fread(code, length, 1, f);
+        fclose(f);
+        code[length] = 0;
+    }
+
+    return code;
+}
+
+static void FreeCode(char* code)
+{
+    free(code);
+}
+
+//----------------------------------------------------------------------------------------------------
 // Tests
 //----------------------------------------------------------------------------------------------------
 
@@ -153,7 +186,7 @@ void TestMain()
             char buffer[2048];
             char nameBuffer[256];
             char code[1024];
-            char result[256];
+            char result[2048];
             const char* name = nameBuffer;
 
             T->mSession = NeOpen(0);
@@ -225,13 +258,33 @@ void TestMain()
                     ++name;
                 }
 
-                if (strncmp(result, "FAIL:", 5) == 0)
+                if (*code == '@')
                 {
-                    TestFail(T, name, code, result + 5);
+                    char* fileCode = LoadCode(code + 1);
+                    if (fileCode)
+                    {
+                        if (strncmp(result, "FAIL: ", 5) == 0)
+                        {
+                            TestFail(T, name, fileCode, result + 5);
+                        }
+                        else
+                        {
+                            TestEqualString(T, name, fileCode, result);
+                        }
+
+                        FreeCode(fileCode);
+                    }
                 }
                 else
                 {
-                    TestEqualString(T, name, code, result);
+                    if (strncmp(result, "FAIL:", 5) == 0)
+                    {
+                        TestFail(T, name, code, result + 5);
+                    }
+                    else
+                    {
+                        TestEqualString(T, name, code, result);
+                    }
                 }
             }
 
