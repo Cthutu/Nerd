@@ -5525,10 +5525,154 @@ static NeBool N_Quote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef resul
     return NE_YES;
 }
 
+// Takes a list pattern:
+//
+//      []->...->[L]->[C]->...->[]->[,]->[e]->[A]->...
+//
+// And we convert it to this patter
+//
+//      []->..................->[L]->[C]->....
+//
+// where:
+//      [L] =   'last' cell - cell before the commit point.  Cells at last and before
+//              are committed cells and will not change.
+//      [C] =   'commit' cell - first cell that reuses the original list.  When we
+//              duplicate cells we copy this cell onwards.
+//      [,] =   The cell with the comma or splice operator.
+//      [e] =   A cell with the element to evaluate.
+//      [A] =   'continuation' cell.  This becomes the new commit point after
+//              duplication and is the first cell used from original list.
+//
+// and everything before the new [L] is a either a duplicated cell from the original
+// list or new cells inserted during the comma or splice operation.
+//
+static NeBool DuplicateCells(Nerd N, NeValueRef root, NeValueRef last, NeValueRef start, NeValue end)
+{
+    while (*start != end)
+    {
+        NeValue newCell = NeCreateCons(N, NE_HEAD(*start), 0);
+        if (!newCell) return NeOutOfMemory(N);
+        if (*last)
+        {
+            NE_TAIL(*last) = newCell;
+        }
+        else
+        {
+            *root = newCell;
+        }
+        *last = newCell;
+        *start = NE_TAIL(*start);
+    }
+
+    return NE_YES;
+}
+
 static NeBool N_Backquote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
+    NeValue scan = NE_1ST(args);
+    NeValue commit = scan;
+    NeValue last = 0;
+    NeValue root = scan;
+
     NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
-    *result = NE_HEAD(args);
+    NE_CHECK_ARG_TYPE(N, scan, 1, NeType_List);
+
+    while (scan)
+    {
+        // The elements from 'commit' to the end of the list will be reused.  If a comma
+        // or splice occurs we need to duplicate elements between 'commit' and the current
+        // element and attach them on the end of 'last' (if non-null).  The duplicated
+        // items will then be connected to the remainder of the original list, so we can
+        // re-use as many cells as possible.
+        //
+        NeValue elem = NE_HEAD(scan);
+
+        if (NE_IS_COMMA(elem))
+        {
+            // Handle evaluated element and replace
+            NeValue newElem = 0;
+            NeValue elemCell = NE_TAIL(scan);
+            NeValue newCell = 0;
+
+            if (elemCell)
+            {
+                NE_EVAL(N, NE_HEAD(elemCell), env, newElem);
+            }
+            else
+            {
+                return NeError(N, "Missing operand to comma operation.");
+            }
+
+            if (!DuplicateCells(N, &root, &last, &commit, scan)) return NE_NO;
+
+            // Now:
+            //  last = points to the cell before the comma operation
+            //  commit = points to the comma operation cell
+            scan = NE_TAIL(elemCell);
+            commit = scan;
+            newCell = NeCreateCons(N, newElem, scan);
+            if (!newCell) return NeOutOfMemory(N);
+            if (last)
+            {
+                NE_TAIL(last) = newCell;
+            }
+            else
+            {
+                root = newCell;
+            }
+            last = newCell;
+        }
+        else if (NE_IS_SPLICE(elem))
+        {
+            // Handle evaluated list element and insert
+            NeValue newElem = 0;
+            NeValue elemCell = NE_TAIL(scan);
+            NeValue newCell = 0;
+
+            if (elemCell)
+            {
+                NE_EVAL(N, NE_HEAD(elemCell), env, newElem);
+                if (!NE_IS_CELL(newElem))
+                {
+                    return NeError(N, "Attempting to splice in a non-list.");
+                }
+            }
+            else
+            {
+                return NeError(N, "Missing operand to splice operation.");
+            }
+
+            if (!DuplicateCells(N, &root, &last, &commit, scan)) return NE_NO;
+
+            // Now:
+            //  last = points to the cell before the splice operation
+            //  commit = points to the comma operation cell
+            commit = NE_TAIL(elemCell);
+            while (newElem)
+            {
+                newCell = NeCreateCons(N, NE_HEAD(newElem), 0);
+                if (!newCell) return NeOutOfMemory(N);
+                if (last)
+                {
+                    NE_TAIL(last) = newCell;
+                }
+                else
+                {
+                    root = newCell;
+                }
+                last = newCell;
+                newElem = NE_TAIL(newElem);
+            }
+            NE_TAIL(last) = commit;
+            scan = commit;
+        }
+        else
+        {
+            scan = NE_TAIL(scan);
+        }
+    }
+
+    *result = root;
     return NE_YES;
 }
 

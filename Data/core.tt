@@ -1,7 +1,6 @@
 #
 # Bugs
 #
-Literal.KeywordInList			'(:test)													(:test)
 
 #
 # Literals
@@ -283,7 +282,13 @@ BI.Length.Symbol				(length 'test-sym)											8
 #
 Backquote.Simple				`(a b c)													(a b c)
 Backquote.Comma					x:4 `(a ,x x)												(a 4 x)
-Backquote.BadComma				x:4 '(a ,x x)												FAIL:
+Backquote.BadComma				x:4 '(a ,x x)												(a , x x)
+Backquote.Comma.Error			x:4 `(a ,)													FAIL:Missing operand to comma operation.
+Backquote.Comma.Start			x:4 `(,x x)													(4 x)
+Backquote.Splice				x:'(1 2 3) `(a ,@x x)										(a 1 2 3 x)
+Backquote.Splice.Bad			x:'(1 2 3) `(a ,@)											FAIL:Missing operand to splice operation.
+Backquote.Splice.Start			x:'(1 2 3) `(,@x x)											(1 2 3 x)
+Backquote.Splice.End			x:'(1 2 3) `(x ,@x)											(x 1 2 3)
 
 #
 # Macros
