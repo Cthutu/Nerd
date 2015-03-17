@@ -4,3 +4,4 @@ _Bin
 DerivedData
 nerd.xcodeproj/xcuserdata
 nerd.xcodeproj/project.xcworkspace/xcuserdata
+*.xccheckout

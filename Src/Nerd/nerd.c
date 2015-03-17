@@ -1208,10 +1208,10 @@ static NeBool ExpandBuffer(NeBufferRef* buffer)
 
 // Reset a buffer so it can be re-used.
 //
-static void ResetBuffer(NeBufferRef buffer)
-{
-    buffer->mCursor = 0;
-}
+//static void ResetBuffer(NeBufferRef buffer)
+//{
+//    buffer->mCursor = 0;
+//}
 
 // Return the number of bytes left in this buffer before it must expand again.
 //
@@ -1299,11 +1299,11 @@ static void* BufferAdd(NeBufferRef* buffer, const void* memBlock, NeUInt size)
 
 // Set a block of memory within the buffer at a position from the beginning of the non-committed data.
 //
-static void BufferSet(NeBufferRef buffer, NeUInt position, const void* memBlock, NeUInt size)
-{
-    NE_ASSERT((buffer->mCommit + position + size) <= buffer->mCursor);
-    CopyMemory(&buffer->mData[buffer->mCommit + position], memBlock, size);
-}
+//static void BufferSet(NeBufferRef buffer, NeUInt position, const void* memBlock, NeUInt size)
+//{
+//    NE_ASSERT((buffer->mCommit + position + size) <= buffer->mCursor);
+//    CopyMemory(&buffer->mData[buffer->mCommit + position], memBlock, size);
+//}
 
 // Get a block of memory within a buffer according to position from the beginning of the non-committed data.
 static void* BufferGet(NeBufferRef buffer, NeUInt position, NeUInt size)
@@ -1312,31 +1312,31 @@ static void* BufferGet(NeBufferRef buffer, NeUInt position, NeUInt size)
     return &buffer->mData[buffer->mCommit + position];
 }
 
-static void BufferShrink(NeBufferRef* buffer)
-{
-    NeUInt origSize = sizeof(NeBuffer)+(*buffer)->mCapacity;
-    NeUInt finalSize = sizeof(NeBuffer)+(*buffer)->mCursor;
-    NeBufferRef newBuffer = NE_REALLOC(NeBuffer, (*buffer)->mSession, *buffer, origSize, finalSize, NeMemoryType_Buffer);
-
-    // We cannot have any saved data when we shrink
-    NE_ASSERT((*buffer)->mStackPointer == (*buffer)->mCapacity);
-
-    if (newBuffer)
-    {
-        *buffer = newBuffer;
-        (*buffer)->mCapacity = (*buffer)->mCursor;
-    }
-}
+//static void BufferShrink(NeBufferRef* buffer)
+//{
+//    NeUInt origSize = sizeof(NeBuffer)+(*buffer)->mCapacity;
+//    NeUInt finalSize = sizeof(NeBuffer)+(*buffer)->mCursor;
+//    NeBufferRef newBuffer = NE_REALLOC(NeBuffer, (*buffer)->mSession, *buffer, origSize, finalSize, NeMemoryType_Buffer);
+//
+//    // We cannot have any saved data when we shrink
+//    NE_ASSERT((*buffer)->mStackPointer == (*buffer)->mCapacity);
+//
+//    if (newBuffer)
+//    {
+//        *buffer = newBuffer;
+//        (*buffer)->mCapacity = (*buffer)->mCursor;
+//    }
+//}
 
 static NeUInt BufferLength(NeBufferRef buffer)
 {
     return buffer->mCursor;
 }
 
-static NeUInt BufferPosition(NeBufferRef buffer)
-{
-    return buffer->mCursor - buffer->mCommit;
-}
+//static NeUInt BufferPosition(NeBufferRef buffer)
+//{
+//    return buffer->mCursor - buffer->mCommit;
+//}
 
 // This will store the data written to the buffer away for later editing.  It will only save the data
 // written since the last commit.  Use RestoreBuffer() to get it back.  You can nest the calls as long
@@ -1384,10 +1384,10 @@ static void RestoreBuffer(NeBufferRef buffer)
     buffer->mCursor += sizeToRestore;
 }
 
-static void CommitBuffer(NeBufferRef buffer)
-{
-    buffer->mCommit = buffer->mCursor;
-}
+//static void CommitBuffer(NeBufferRef buffer)
+//{
+//    buffer->mCommit = buffer->mCursor;
+//}
 
 //----------------------------------------------------------------------------------------------------{SCRATCH}
 //----------------------------------------------------------------------------------------------------
@@ -2853,16 +2853,16 @@ static void ModNumbers(NeNumberRef a, NeNumberRef b, NeNumberRef out)
     out->mInteger = a->mInteger % b->mInteger;
 }
 
-static NeBool IsZero(NeNumberRef a)
-{
-    switch (a->mNumType)
-    {
-    case NeNumberType_Integer:  return a->mInteger == 0;
-    case NeNumberType_Ratio:    return a->mNumerator == 0;
-    case NeNumberType_Float:    return (a->mFloat == 0) || (a->mFloat == -0);
-    default:                    return NE_YES;
-    }
-}
+//static NeBool IsZero(NeNumberRef a)
+//{
+//    switch (a->mNumType)
+//    {
+//    case NeNumberType_Integer:  return a->mInteger == 0;
+//    case NeNumberType_Ratio:    return a->mNumerator == 0;
+//    case NeNumberType_Float:    return (a->mFloat == 0) || (a->mFloat == -0);
+//    default:                    return NE_YES;
+//    }
+//}
 
 NeInt NeGetInteger(Nerd N, NeValue a)
 {
@@ -4048,7 +4048,6 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
     case NE_PT_SEQUENCE:
         {
             char open, close;
-            NeCellRef cell = NE_CELL(v);
 
             if (0 == v)
             {
