@@ -307,5 +307,6 @@ Macro.If.False					if: (?cond ?then ?else) => `(cond ,?cond: ,?then else: ,?else
 # File tests
 #
 
-FileTest.String					@filetest.string.n											"123"
-FileTest.Average				@filetest.average.n											36.3333
+FileTest.String					@test.string.n												"123"
+FileTest.Average				@test.average.n												36.3333
+FileTest.Macros					@test.macro.n												"even"

@@ -5732,7 +5732,7 @@ static NeBool N_Cond(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result
     
     if (!elseSymbol) return NeOutOfMemory(N);
     
-    NE_NEED_NUM_ARGS(N, args, 2);
+    NE_NEED_NUM_ARGS(N, args, 1);
     
     while (args)
     {
