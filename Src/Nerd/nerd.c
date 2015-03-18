@@ -4573,6 +4573,8 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NeValue env, N
     return NE_YES;
 }
 
+static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList);
+
 // Reads a series of tokens that terminates with a specific one and creates a list out of it.
 // The environment is provided for executing macros and comma expansions.
 //
@@ -4595,6 +4597,8 @@ static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken,
                 NeValue newTable = NeCloneTable(N, 0);
                 NeValueRef valueRef = 0;
                 NeInt index = 0;
+
+                if (!Transform(N, &root)) return NE_NO;
 
                 while (root)
                 {
@@ -4654,8 +4658,6 @@ static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken,
         if (!AppendItem(N, &root, &lastCell, elem)) return NE_NO;
     }
 }
-
-static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList);
 
 // This function returns how many following elements to advance
 static NeBool TransformElement(Nerd N, NeValue input, NE_OUT NeValueRef result)
