@@ -1,0 +1,17 @@
+;;; ************************************************************************
+;;; ** Main System library                                                **
+;;; ** Copyright (C)2015 Matt Davies, all rights reserved.                **
+;;; ************************************************************************
+
+;;; Basic IF macro
+if: (?cond ?then ?else) => `(cond ,?cond: ,?then else: ,?else)
+
+;;; Basic WHEN macro
+when: (?cond ?do) => `(cond ,?cond: ?do)
+
+;;; Basic UNLESS macro
+unless: (?cond ?do) => `(cond (not ,?cond): ?do)
+
+;;; Basic predicates
+even?: (x) -> (== 0 (% x 2))
+odd?: (x) -> (not (== 0 (% x 2)))

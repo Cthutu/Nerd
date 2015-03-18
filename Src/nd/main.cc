@@ -218,6 +218,11 @@ static Nerd CreateSession(int argc, const char** argv, NeBool* interactive)
 
     if (N)
     {
+        // Load in 'system.n' in the current directory.
+        if (!RunFile(N, "system.n"))
+        {
+            fprintf(stderr, "ERROR: System file did not execute!\n");
+        }
         // Load in the buffers and read them
         int i = 0;
         NeBool success = NE_YES;
@@ -248,7 +253,7 @@ static Nerd CreateSession(int argc, const char** argv, NeBool* interactive)
                             }
                             else
                             {
-                                fprintf(stderr, "ERROR: No code provided on command line for execution.");
+                                fprintf(stderr, "ERROR: No code provided on command line for execution.\n");
                             }
                         }
                     }
