@@ -231,7 +231,7 @@ NeType;
 #define NE_IS_COMMA(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_COMMA))
 #define NE_IS_SPLICE(v)                 (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_SPLICE))
 #define NE_IS_COLON(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_COLON))
-#define NE_IS_READER_UNARY_OP(v)        (NE_IS_QUOTE(v) || NE_IS_BACKQUOTE(v))
+#define NE_IS_READER_UNARY_OP(v)        (NE_IS_QUOTE(v) || NE_IS_BACKQUOTE(v) || NE_IS_COMMA(v) || NE_IS_SPLICE(v))
 #define NE_IS_READER_BINARY_OP(v)       (NE_IS_LAMBDA(v) || NE_IS_MACROSYM(v) || NE_IS_COLON(v))
 #define NE_IS_BOOLEAN(v)                NE_IS_EXTENDED_TYPE((v), NE_XT_BOOLEAN)
 #define NE_IS_NATIVE(v)                 NE_IS_EXTENDED_TYPE((v), NE_XT_NATIVE)

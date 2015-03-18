@@ -1,8 +1,4 @@
 #
-# Bugs
-#
-
-#
 # Literals
 #
 Literal.String					"Hello!"													"Hello!"
@@ -177,7 +173,7 @@ SubString.TooLarge				("Hello" 2 5)												FAIL:Invalid size parameter for s
 # Quoting
 #
 
-Reader.Quote.NoValue			'															FAIL:Missing argument for '.
+Reader.Quote.NoValue			'															FAIL:Missing argument for '''.
 Reader.Quote.List				'(1 2 3)													(1 2 3)
 Reader.Quote.Symbol				'a															a
 Reader.Quote.SubList			('(1 2 3) 2)												3
@@ -282,20 +278,30 @@ BI.Length.Symbol				(length 'test-sym)											8
 #
 Backquote.Simple				`(a b c)													(a b c)
 Backquote.Comma					x:4 `(a ,x x)												(a 4 x)
-Backquote.BadComma				x:4 '(a ,x x)												(a , x x)
-Backquote.Comma.Error			x:4 `(a ,)													FAIL:Missing operand to comma operation.
+Backquote.BadComma				x:4 '(a ,x x)												(a (, x) x)
+Backquote.Comma.Error			x:4 `(a ,)													FAIL:Missing argument for ','.
 Backquote.Comma.Start			x:4 `(,x x)													(4 x)
+Backquote.Comma.KeyValue.1		x:4 `(,x:6)													(4: 6)
+Backquote.Comma.KeyValue.2		x:4 `(6:,x)													(6: 4)
+Backquote.Comma.SubList			x:4 `(a (5 ,x) c)											(a (5 4) c)
+Backquote.Comma.Sequence		x:4 `{a ,x c}												{a 4 c}
+
 Backquote.Splice				x:'(1 2 3) `(a ,@x x)										(a 1 2 3 x)
-Backquote.Splice.Bad			x:'(1 2 3) `(a ,@)											FAIL:Missing operand to splice operation.
+Backquote.Splice.Bad			x:'(1 2 3) `(a ,@)											FAIL:Missing argument for ',@'.
+Backquote.Splice.Bad.KV.Start	x:'(1 2 3) `(,@x:6)											FAIL:Attempting to splice in a non-list with the ,@ operator.
+Backquote.Splice.Bad.KV.End		x:'(1 2 3) `(6:,@x)											FAIL:Attempting to splice in a non-list with the ,@ operator.
 Backquote.Splice.Start			x:'(1 2 3) `(,@x x)											(1 2 3 x)
 Backquote.Splice.End			x:'(1 2 3) `(x ,@x)											(x 1 2 3)
+Backquote.Splice.SubList		x:'(1 2 3) `(a (,@x 4) c)									(a (1 2 3 4) c)
 
 #
 # Macros
 #
 
-#Macro.If						if: (?cond ?then ?else) => `(cond ,?cond yes: ,?then else: ,?else) (if yes yes no)		yes
-#Macro.If						if: (?cond ?then ?else) => `(cond ,?cond yes: ,?then else: ,?else) (if no yes no)		no
+Macro.Simple					x:() => 42 (+ 2 (x))																44
+Macro.Quoted					x:() => 42 '((x) 2)																	((x) 2)
+Macro.If.True					if: (?cond ?then ?else) => `(cond ,?cond: ,?then else: ,?else) (if yes yes no)		yes
+Macro.If.False					if: (?cond ?then ?else) => `(cond ,?cond: ,?then else: ,?else) (if no yes no)		no
 
 #
 # File tests

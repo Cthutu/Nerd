@@ -476,6 +476,7 @@ static NeBool AppendCell(Nerd N, NE_IN_OUT NeValue* rootRef, NE_IN_OUT NeValue* 
         *rootRef = newCell;
     }
     *lastCellRef = newCell;
+    NE_TAIL(newCell) = 0;
 
     return NE_YES;
 }
@@ -4060,7 +4061,7 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
                     return NE_YES;
                 }
             }
-            
+
             if (NE_TYPEOF(v) == NE_PT_CELL)
             {
                 open = '(';
@@ -4693,37 +4694,33 @@ static NeBool TransformUnary(Nerd N, NeValue op, NeValue param1, NE_OUT NeValueR
     NeDebugOutValue(N, "             P1", param1);
 #endif
 
-    if (NE_IS_QUOTE(op) || NE_IS_BACKQUOTE(op))
+    success = TransformElement(N, param1, &param1);
+    if (success)
     {
-        // Handle 'exp or `exp
-        success = TransformElement(N, param1, &param1);
-        if (success)
+        NeValue sym = 0;
+        
+        if (NE_IS_QUOTE(op)) sym = NeCreateSymbol(N, "quote", 5);
+        else if (NE_IS_BACKQUOTE(op)) sym = NeCreateSymbol(N, "backquote", 9);
+        else sym = op;
+        
+        if (sym)
         {
-            NeValue sym = NE_IS_QUOTE(op) ? NeCreateSymbol(N, "quote", 5) : NeCreateSymbol(N, "backquote", 9);
-            if (sym)
+            NeValue cells = NeCreateList(N, 2);
+            NE_1ST(cells) = sym;
+            NE_2ND(cells) = param1;
+            if (cells)
             {
-                NeValue cells = NeCreateList(N, 2);
-                NE_1ST(cells) = sym;
-                NE_2ND(cells) = param1;
-                if (cells)
-                {
-                    *result = cells;
-                }
-                else
-                {
-                    success = NE_NO;
-                }
+                *result = cells;
             }
             else
             {
                 success = NE_NO;
             }
         }
-    }
-    else
-    {
-        // This should never happen!
-        success = NeError(N, "INTERNAL READER ERROR: Unsupported operator!");
+        else
+        {
+            success = NE_NO;
+        }
     }
 
     return success;
@@ -4878,7 +4875,7 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
 
             if (!op1Cell)
             {
-                return NeError(N, "Missing argument for %s.", NeToString(N, elem, NE_CONVERT_MODE_REPL));
+                return NeError(N, "Missing argument for '%s'.", NeToString(N, elem, NE_CONVERT_MODE_REPL));
             }
             op1 = NE_HEAD(op1Cell);
             NeRecycleCons(N, op1Cell);
@@ -5208,6 +5205,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
             break;
 
     case NE_PT_FUNCTION:
+    case NE_PT_MACRO:
         {
             NeValue funcEnv = GetFunctionEnv(func, NE_BOX(environment, NE_PT_TABLE));
             NeValue funcArgs = GetFunctionArgs(func);
@@ -5216,6 +5214,14 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
 
             // Set up the function environment.
             if (!ExtendEnvironment(N, environment, funcEnv, funcArgs, args, &execEnv)) return NE_NO;
+
+            // Deal with macros
+            if (NE_IS_MACRO(func))
+            {
+                NeValue expToEval = 0;
+                if (!EvaluateList(N, funcBody, NE_CAST(execEnv, NeTable), &expToEval)) return NE_NO;
+                return Evaluate(N, expToEval, environment, result);
+            }
 
             // Execute the function.
             return EvaluateList(N, funcBody, NE_CAST(execEnv, NeTable), result);
@@ -5514,7 +5520,7 @@ static NeBool N_Fn(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 static NeBool N_Macro(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     if (!N_Fn(N, args, env, result)) return NE_NO;
-    *result = NE_BOX(result, NE_PT_MACRO);
+    *result = NE_BOX(*result, NE_PT_MACRO);
     return NE_YES;
 }
 
@@ -5567,113 +5573,154 @@ static NeBool DuplicateCells(Nerd N, NeValueRef root, NeValueRef last, NeValueRe
     return NE_YES;
 }
 
-static NeBool N_Backquote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+static NeBool ScanBackquote(Nerd N, NeValue scan, NeValue env, NE_OUT NeValueRef result);
+
+// We look at a value that occurs in a list and see if it needs to change.  If it doesn't need to
+// change then *newElem == elem.
+//
+// It will change if:
+//
+//      * Element is a list and it starts with ','.
+//      * ELement is a list and it starts with ',@'.
+//      * Element is a list and one of its members needs to change.
+//      * Element is a key/value and its key or value needs to change.
+//
+static NeBool ProcessBackquoteElement(Nerd N, NeValue elem, NeValue env, NE_OUT NeValueRef newElem, NE_OUT NeBool* splice)
 {
-    NeValue scan = NE_1ST(args);
-    NeValue commit = scan;
-    NeValue last = 0;
-    NeValue root = scan;
+    *splice = NE_NO;
 
-    NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
-    NE_CHECK_ARG_TYPE(N, scan, 1, NeType_List);
-
-    while (scan)
+    if (elem && (NE_IS_CELL(elem) || NE_IS_SEQUENCE(elem)))
     {
-        // The elements from 'commit' to the end of the list will be reused.  If a comma
-        // or splice occurs we need to duplicate elements between 'commit' and the current
-        // element and attach them on the end of 'last' (if non-null).  The duplicated
-        // items will then be connected to the remainder of the original list, so we can
-        // re-use as many cells as possible.
-        //
-        NeValue elem = NE_HEAD(scan);
-
-        if (NE_IS_COMMA(elem))
+        NeValue op = NE_1ST(elem);      // Possible comma or splice operation.
+        // Check for comma
+        if (NE_IS_COMMA(op))
         {
-            // Handle evaluated element and replace
-            NeValue newElem = 0;
-            NeValue elemCell = NE_TAIL(scan);
-            NeValue newCell = 0;
-
-            if (elemCell)
-            {
-                NE_EVAL(N, NE_HEAD(elemCell), env, newElem);
-            }
-            else
-            {
-                return NeError(N, "Missing operand to comma operation.");
-            }
-
-            if (!DuplicateCells(N, &root, &last, &commit, scan)) return NE_NO;
-
-            // Now:
-            //  last = points to the cell before the comma operation
-            //  commit = points to the comma operation cell
-            scan = NE_TAIL(elemCell);
-            commit = scan;
-            newCell = NeCreateCons(N, newElem, scan);
-            if (!newCell) return NeOutOfMemory(N);
-            if (last)
-            {
-                NE_TAIL(last) = newCell;
-            }
-            else
-            {
-                root = newCell;
-            }
-            last = newCell;
+            return NeEval(N, NE_2ND(elem), env, newElem);
         }
-        else if (NE_IS_SPLICE(elem))
+        // Check for splice
+        else if (NE_IS_SPLICE(op))
         {
-            // Handle evaluated list element and insert
-            NeValue newElem = 0;
-            NeValue elemCell = NE_TAIL(scan);
-            NeValue newCell = 0;
-
-            if (elemCell)
-            {
-                NE_EVAL(N, NE_HEAD(elemCell), env, newElem);
-                if (!NE_IS_CELL(newElem))
-                {
-                    return NeError(N, "Attempting to splice in a non-list.");
-                }
-            }
-            else
-            {
-                return NeError(N, "Missing operand to splice operation.");
-            }
-
-            if (!DuplicateCells(N, &root, &last, &commit, scan)) return NE_NO;
-
-            // Now:
-            //  last = points to the cell before the splice operation
-            //  commit = points to the comma operation cell
-            commit = NE_TAIL(elemCell);
-            while (newElem)
-            {
-                newCell = NeCreateCons(N, NE_HEAD(newElem), 0);
-                if (!newCell) return NeOutOfMemory(N);
-                if (last)
-                {
-                    NE_TAIL(last) = newCell;
-                }
-                else
-                {
-                    root = newCell;
-                }
-                last = newCell;
-                newElem = NE_TAIL(newElem);
-            }
-            NE_TAIL(last) = commit;
-            scan = commit;
+            *splice = NE_YES;
+            return NeEval(N, NE_2ND(elem), env, newElem);
         }
+        // Handle normal list
         else
         {
-            scan = NE_TAIL(scan);
+            return ScanBackquote(N, elem, env, newElem);
+        }
+    }
+    // Check for key/value
+    else if (NE_IS_KEYVALUE(elem))
+    {
+        NeValue key = NeGetKey(elem);
+        NeValue value = NeGetValue(elem);
+        NeValue newKey, newValue;
+
+        if (!ProcessBackquoteElement(N, key, env, &newKey, splice)) return NE_NO;
+        if (*splice)
+        {
+            return NeError(N, "Attempting to splice in a non-list with the ,@ operator.");
+        }
+        if (!ProcessBackquoteElement(N, value, env, &newValue, splice)) return NE_NO;
+        if (*splice)
+        {
+            return NeError(N, "Attempting to splice in a non-list with the ,@ operator.");
+        }
+        if (key != newKey || value != newValue)
+        {
+            // The key/value has changed so we need to create a new one
+            *newElem = NeCreateKeyValue(N, newKey, newValue);
+            return newElem ? NE_YES : NE_NO;
         }
     }
 
-    *result = root;
+    // All other values
+    *newElem = elem;
     return NE_YES;
+}
+
+// This scans a list or sequence and generates a new one if any of its members change.
+// It uses ProcessBackquoteElement() to handle this.
+//
+static NeBool ScanBackquote(Nerd N, NeValue scan, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue commit = scan;
+    NeValue last = 0;
+    NeValue root = 0;
+    NeValue origList = scan;
+
+    while (scan)
+    {
+        NeValue elem = NE_HEAD(scan);
+        NeValue newElem;
+        NeBool splice;
+
+        if (!ProcessBackquoteElement(N, elem, env, &newElem, &splice)) return NE_NO;
+
+        if (elem != newElem)
+        {
+            // We have a change!
+            if (splice)
+            {
+                if (!NE_IS_CELL(newElem))
+                {
+                    return NeError(N, "Attempting to splice in a non-list with the ,@ operator.");
+                }
+
+                // Element should be a list and needs to be spliced in.  This list will
+                // not be the original so we duplicate all previous items.
+                if (!DuplicateCells(N, &root, &last, &commit, scan)) return NE_NO;
+
+                // At this point commit == scan and scan points to the old element that changed.
+                // We should append all the elements in the spliced list.
+                while (newElem)
+                {
+                    NeValue next = NE_TAIL(newElem);
+                    if (!AppendCell(N, &root, &last, newElem)) return NE_NO;
+                    newElem = next;
+                }
+            }
+            else
+            {
+                // New element should replace current element at 'scan'.  But we need to duplicate
+                // the elements before the current element.
+                if (!DuplicateCells(N, &root, &last, &commit, scan)) return NE_NO;
+
+                // Append the new element to our duplicated list.
+                if (!AppendItem(N, &root, &last, newElem)) return NE_NO;
+            }
+
+            // At this point, 'last' points to the latest of the new cells, and 'scan' points to the
+            // replaced cell.  'scan' and 'commit' need to point to the next cell in our list to 
+            // process.  Everything before 'commit' does not need to be duplicated now.
+            NE_TAIL(last) = NE_TAIL(scan);
+            scan = NE_TAIL(last);
+            commit = scan;
+        }
+        else
+        {
+            // Nothing changed, nothing to see here!  Move on!
+            scan = NE_TAIL(scan);
+        }
+    } // while(scan)
+
+    *result = root ? root : origList;
+    if (!NE_IS_CELL(origList))
+    {
+        *result = NE_BOX(*result, NE_TYPEOF(origList));
+    }
+    return NE_YES;
+}
+
+static NeBool N_Backquote(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
+    if (!NE_IS_CELL(NE_1ST(args)) && !NE_IS_SEQUENCE(NE_1ST(args)))
+    {
+        return NeError(N, "Attempt to backquote a non-list/sequence.");
+    }
+
+    return ScanBackquote(N, NE_1ST(args), env, result);
 }
 
 static NeBool N_Cond(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
