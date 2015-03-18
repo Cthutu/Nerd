@@ -2,6 +2,6 @@
 
 even?: (x) -> (== 0 (% x 2))
 
-when: (?cond ?do) => `(cond ,?cond: ?do)
+when: (?cond ?do) => `(cond ,?cond: ,?do)
 
 (when (even? 4) "even")

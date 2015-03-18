@@ -5014,7 +5014,7 @@ NeValue GetFunctionBody(NeValue func)
     return NE_TAIL(NE_HEAD(func));
 }
 
-static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, NeValue argNames, NeValue argValues, NE_OUT NeValueRef execEnv)
+static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, NeValue argNames, NeValue argValues, NeBool evalArgs, NE_OUT NeValueRef execEnv)
 {
     NeTableRef env;
     *execEnv = NeCloneTable(N, funcEnv);
@@ -5053,7 +5053,14 @@ static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, N
 
                     while (argValues)
                     {
-                        if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
+                        if (evalArgs)
+                        {
+                            if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
+                        }
+                        else
+                        {
+                            result = NE_HEAD(argValues);
+                        }
                         if (!AppendItem(N, &restValue, &lastCell, result)) return NeOutOfMemory(N);
                         argValues = NE_TAIL(argValues);
                     }
@@ -5071,7 +5078,14 @@ static NeBool ExtendEnvironment(Nerd N, NeTableRef callerEnv, NeValue funcEnv, N
         }
         else
         {
-            if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
+            if (evalArgs)
+            {
+                if (!Evaluate(N, NE_HEAD(argValues), callerEnv, &result)) return NE_NO;
+            }
+            else
+            {
+                result = NE_HEAD(argValues);
+            }
             if (!Assign(N, argName, result, env, NE_YES)) return NE_NO;
             argValues = NE_TAIL(argValues);
         }
@@ -5215,7 +5229,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
             NeValue execEnv = 0;
 
             // Set up the function environment.
-            if (!ExtendEnvironment(N, environment, funcEnv, funcArgs, args, &execEnv)) return NE_NO;
+            if (!ExtendEnvironment(N, environment, funcEnv, funcArgs, args, NE_IS_FUNCTION(func) ? NE_YES : NE_NO, &execEnv)) return NE_NO;
 
             // Deal with macros
             if (NE_IS_MACRO(func))
@@ -5306,7 +5320,7 @@ static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OU
     case NE_PT_SEQUENCE:
         {
             NeValue newEnv = 0;
-            if (!ExtendEnvironment(N, environment, NE_BOX(environment, NE_PT_TABLE), 0, 0, &newEnv)) return NE_NO;
+            if (!ExtendEnvironment(N, environment, NE_BOX(environment, NE_PT_TABLE), 0, 0, NE_YES, &newEnv)) return NE_NO;
             if (!EvaluateList(N, expression & ~0xfull, NE_CAST(newEnv, NeTable), result)) return NE_NO;
             break;
     }

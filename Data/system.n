@@ -7,10 +7,10 @@
 if: (?cond ?then ?else) => `(cond ,?cond: ,?then else: ,?else)
 
 ;;; Basic WHEN macro
-when: (?cond ?do) => `(cond ,?cond: ?do)
+when: (?cond ?do) => `(cond ,?cond: ,?do)
 
 ;;; Basic UNLESS macro
-unless: (?cond ?do) => `(cond (not ,?cond): ?do)
+unless: (?cond ?do) => `(cond (not ,?cond): ,?do)
 
 ;;; Basic predicates
 even?: (x) -> (== 0 (% x 2))
