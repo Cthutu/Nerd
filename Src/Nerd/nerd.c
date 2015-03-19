@@ -106,7 +106,7 @@ typedef struct _NeStringInfo
 {
     NeGcObject      mGcObj;         // All strings are chained and garbage collectible
     NeUInt32        mHash;          // 32-bit hash of the string (for fast comparison)
-    NeUInt          mLength;        // Number of bytes in the string (not including null terminator)
+    NeInt           mLength;        // Number of bytes in the string (not including null terminator)
     char            mString[0];     // String characters and null terminator follow structure
 }
 NeStringInfo, *NeStringInfoRef;
@@ -150,9 +150,9 @@ typedef void(*NePoolElemDestroyFunc) (Nerd N, void* elem);
 
 typedef struct _NePool
 {
-    NeUInt                  mElemSize;          // Size of a single element in the pool.
-    NeUInt                  mNumElems;          // Number of elements in a pool heap.  A pool is a collection of chained heaps.
-    NeUInt                  mNumAvail;          // Number of elements available.
+    NeInt                   mElemSize;          // Size of a single element in the pool.
+    NeInt                   mNumElems;          // Number of elements in a pool heap.  A pool is a collection of chained heaps.
+    NeInt                   mNumAvail;          // Number of elements available.
     Nerd                    mSession;           // The session that the memory is managed by.
     NeGcObjectRef           mFreeList;          // Pointer to the first free element.
     void*                   mChain;             // Pointer to first heap.
@@ -168,11 +168,11 @@ NePool, *NePoolRef;
 
 typedef struct _NeBuffer
 {
-    NeUInt          mCapacity;      // Size of the allocated memory
-    NeUInt          mIncrement;     // The amount the buffer should expand by
-    NeUInt          mCursor;        // The current point to insert new data
-    NeUInt			mStackPointer;	// Pointer to the saved data
-    NeUInt			mCommit;		// Data before this has been committed
+    NeInt           mCapacity;      // Size of the allocated memory
+    NeInt           mIncrement;     // The amount the buffer should expand by
+    NeInt           mCursor;        // The current point to insert new data
+    NeInt           mStackPointer;  // Pointer to the saved data
+    NeInt           mCommit;        // Data before this has been committed
     Nerd            mSession;       // Session that owns this buffer
     char            mData[0];
 }
@@ -202,10 +202,10 @@ NeBlock, *NeBlockRef;
 
 typedef struct _NeMemoryInfo
 {
-    NeUInt                  mSize;
+    NeInt                   mSize;
     union
     {
-        NeUInt                  mPadding[6];
+        NeInt                   mPadding[6];
         struct {
             const char*             mFileName;
             NeUInt16                mLineNumber;
@@ -215,7 +215,7 @@ typedef struct _NeMemoryInfo
             struct _NeMemoryInfo*   mNext;
         };
     };
-    NeUInt                  mMagic;
+    NeBits                  mMagic;
 }
 NeMemoryInfo, *NeMemoryInfoRef;
 
@@ -230,8 +230,8 @@ NeMemoryInfo, *NeMemoryInfoRef;
 
 typedef struct _NeGlobalSession
 {
-    NeConfig		        mConfig;		    // All connected sessions share the same configuration.
-    NeUInt			        mRefCount;		    // Counts how many local sessions are referencing it.
+    NeConfig                mConfig;            // All connected sessions share the same configuration.
+    NeInt                   mRefCount;          // Counts how many local sessions are referencing it.
 
     // Memory management
 #if NE_DEBUG_MEMORY
@@ -240,7 +240,7 @@ typedef struct _NeGlobalSession
 #endif
 
     // Garbage collection information
-    NeUInt                  mMarkColour;        // The next mark colour to be used in a garbage collect.
+    NeInt                   mMarkColour;        // The next mark colour to be used in a garbage collect.
 
     // String information
     NeGcObjectRef           mFirstString;       // Start of a linked list of all strings.
@@ -290,7 +290,7 @@ struct _Nerd
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-#define StrLen(str) (NeUInt)strlen(str)
+#define StrLen(str) (NeInt)strlen(str)
 #define ClearMemory(memory, size) memset((memory), 0, (size_t)(size))
 #define CopyMemory(dest, src, size) memcpy((dest), (src), (size_t)(size))
 #define MoveMemory(dest, src, size) memmove((dest), (src), (size_t)(size))
@@ -501,7 +501,7 @@ static NeBool AppendItem(Nerd N, NE_IN_OUT NeValue* rootRef, NE_IN_OUT NeValue* 
     return AppendCell(N, rootRef, lastCellRef, newCell);
 }
 
-NeBool NeCheckArgType(Nerd N, NeValue arg, NeUInt index, NeType expectedArgType)
+NeBool NeCheckArgType(Nerd N, NeValue arg, NeInt index, NeType expectedArgType)
 {
     NeType argType = NeGetType(arg);
     if ((argType != expectedArgType) &&
@@ -516,10 +516,10 @@ NeBool NeCheckArgType(Nerd N, NeValue arg, NeUInt index, NeType expectedArgType)
     return NE_YES;
 }
 
-NeBool NeCheckNumArgs(Nerd N, NeValue args, NeUInt count, NeBool exactCount)
+NeBool NeCheckNumArgs(Nerd N, NeValue args, NeInt count, NeBool exactCount)
 {
     // TODO: Make this faster by having the arguments in an array
-    NeUInt countArgs = 0;
+    NeInt countArgs = 0;
 
     while (args)
     {
@@ -605,7 +605,7 @@ NeType NeGetType(NeValue v)
         NeType_Undefined,
     };
 
-    NeUInt type = 0;
+    NeInt type = 0;
     NeType result = NeType_Undefined;
 
     if (0 == v) return NeType_Nil;
@@ -676,8 +676,8 @@ typedef struct _NeDebugMemoryOp
 {
     Nerd            mSession;       // The session that is making the memory operation
     void*           mAddress;       // The address for deallocations and reallocations of the original buffer
-    NeUInt          mOldSize;       // The size of the buffer before this operation
-    NeUInt          mNewSize;       // The intended size of the buffer after this operation
+    NeInt           mOldSize;       // The size of the buffer before this operation
+    NeInt           mNewSize;       // The intended size of the buffer after this operation
     NeMemoryType    mType;          // The type of memory being allocated
     const char*     mFile;          // Name of file
     int             mLine;          // Line number of allocation
@@ -734,9 +734,9 @@ static void* DefaultMemoryCallback(NeMemoryOpRef memoryOperation)
     NeDebugMemoryOpRef op = (NeDebugMemoryOpRef)memoryOperation;
     NeMemoryInfoRef newInfo = 0;
     NeMemoryInfoRef info = op->mAddress ? ((NeMemoryInfoRef)op->mAddress) - 1 : 0;
-    NeUInt actualSize = op->mNewSize ? op->mNewSize + sizeof(NeMemoryInfo)+sizeof(NeUInt) : 0;
+    NeInt actualSize = op->mNewSize ? op->mNewSize + sizeof(NeMemoryInfo)+sizeof(NeInt) : 0;
     NeGlobalSessionRef G = op->mSession ? op->mSession->mGlobalSession : 0;
-    NeUInt index = G ? ++G->mMemoryIndex : 0;
+    NeInt index = G ? ++G->mMemoryIndex : 0;
 
     if ((op->mAddress == 0) && (op->mNewSize == 0))
     {
@@ -751,15 +751,15 @@ static void* DefaultMemoryCallback(NeMemoryOpRef memoryOperation)
         while (scan)
         {
             NE_ASSERT(scan->mMagic == NE_GUARD_BEGIN);
-            NE_ASSERT(*(NeUInt *)(&((char *)(scan + 1))[scan->mSize]) == NE_GUARD_END);
+            NE_ASSERT(*(NeInt *)(&((char *)(scan + 1))[scan->mSize]) == NE_GUARD_END);
             scan = scan->mNext;
         }
     }
 #endif
 
-    // realloc and free only use a size_t type for the size of allocation.  It is possible that NeUInt can hold
+    // realloc and free only use a size_t type for the size of allocation.  It is possible that NeInt can hold
     // a value greater than what a size_t can hold.  This check protects against that.
-    if (op->mNewSize > (NeUInt)(size_t)-1)
+    if (op->mNewSize > (NeInt)(size_t)-1)
     {
         return 0;
     }
@@ -810,7 +810,7 @@ static void* DefaultMemoryCallback(NeMemoryOpRef memoryOperation)
         if (newInfo)
         {
             newInfo->mMagic = NE_GUARD_BEGIN;
-            *(NeUInt *)(&((char *)(newInfo + 1))[op->mNewSize]) = NE_GUARD_END;
+            *(NeInt *)(&((char *)(newInfo + 1))[op->mNewSize]) = NE_GUARD_END;
             newInfo->mFileName = op->mFile;
             newInfo->mLineNumber = op->mLine;
             newInfo->mIndex = (NeUInt16)index;
@@ -926,10 +926,10 @@ void NeSetConfigToDefault(NeConfigRef config)
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-static void CreatePool(NePoolRef pool, Nerd N, NeUInt elemSize, NeUInt numElemsPerHeap,
+static void CreatePool(NePoolRef pool, Nerd N, NeInt elemSize, NeInt numElemsPerHeap,
                        NePoolElemDestroyFunc destroyFunc);
 static void DestroyPool(NePoolRef pool);
-static NeBufferRef CreateBuffer(Nerd N, NeUInt startSize);
+static NeBufferRef CreateBuffer(Nerd N, NeInt startSize);
 static void InitTable(Nerd N, NeTableRef table, NeTableRef parent);
 static void DestroyTableElement(Nerd N, void* tableObject);
 static void DestroyBlockElement(Nerd N, void* blockObject);
@@ -955,10 +955,10 @@ Nerd NeOpen(NeConfigRef config)
 
     // Check the sizes of the data types
     if ((sizeof(NeInt) != 8) ||
-        (sizeof(NeUInt) != 8) ||
         (sizeof(NeUInt8) != 1) ||
         (sizeof(NeUInt16) != 2) ||
-        (sizeof(NeUInt32) != 4))
+        (sizeof(NeUInt32) != 4) ||
+        (sizeof(NeInt) != sizeof(NeBits)))
     {
         gNeOpenError = "Size of integer types are not correct";
         goto error;
@@ -1095,7 +1095,7 @@ void NeClose(Nerd N)
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-void* _NeAlloc(Nerd N, NeUInt size, NeMemoryType memoryType, const char* file, int line)
+void* _NeAlloc(Nerd N, NeInt size, NeMemoryType memoryType, const char* file, int line)
 {
     NeDebugMemoryOp op;
     void* address;
@@ -1109,11 +1109,11 @@ void* _NeAlloc(Nerd N, NeUInt size, NeMemoryType memoryType, const char* file, i
     op.mLine = line;
 
     address = N->mGlobalSession->mConfig.mCallbacks.mMemoryCallback((NeMemoryOpRef)&op);
-    NE_ASSERT((((NeUInt)address) & 0x0f) == 0);
+    NE_ASSERT((((NeInt)address) & 0x0f) == 0);
     return address;
 }
 
-void* _NeRealloc(Nerd N, void* address, NeUInt oldSize, NeUInt newSize, NeMemoryType memoryType, const char* file, int line)
+void* _NeRealloc(Nerd N, void* address, NeInt oldSize, NeInt newSize, NeMemoryType memoryType, const char* file, int line)
 {
     NeDebugMemoryOp op;
     void* newAddress;
@@ -1127,11 +1127,11 @@ void* _NeRealloc(Nerd N, void* address, NeUInt oldSize, NeUInt newSize, NeMemory
     op.mLine = line;
 
     newAddress = N->mGlobalSession->mConfig.mCallbacks.mMemoryCallback((NeMemoryOpRef)&op);
-    NE_ASSERT((((NeUInt)address) & 0x0f) == 0);
+    NE_ASSERT((((NeInt)address) & 0x0f) == 0);
     return newAddress;
 }
 
-void _NeFree(Nerd N, void* address, NeUInt oldSize, NeMemoryType memoryType, const char* file, int line)
+void _NeFree(Nerd N, void* address, NeInt oldSize, NeMemoryType memoryType, const char* file, int line)
 {
     NeDebugMemoryOp op;
     op.mSession = N;
@@ -1153,9 +1153,9 @@ void _NeFree(Nerd N, void* address, NeUInt oldSize, NeMemoryType memoryType, con
 
 // Create a new expandable buffer.
 //
-static NeBufferRef CreateBuffer(Nerd N, NeUInt startSize)
+static NeBufferRef CreateBuffer(Nerd N, NeInt startSize)
 {
-    NeUInt finalSize = startSize + sizeof(NeBuffer);
+    NeInt finalSize = startSize + sizeof(NeBuffer);
     NeBufferRef newBuffer = NE_ALLOC(NeBuffer, N, finalSize, NeMemoryType_Buffer);
 
     if (newBuffer)
@@ -1185,9 +1185,9 @@ static void DestroyBuffer(NeBufferRef buffer)
 //
 static NeBool ExpandBuffer(NeBufferRef* buffer)
 {
-    NeUInt newSize = (*buffer)->mCapacity + (*buffer)->mIncrement;
-    NeUInt stackSize = (*buffer)->mCapacity - (*buffer)->mStackPointer;
-    NeUInt oldSP = (*buffer)->mStackPointer;
+    NeInt newSize = (*buffer)->mCapacity + (*buffer)->mIncrement;
+    NeInt stackSize = (*buffer)->mCapacity - (*buffer)->mStackPointer;
+    NeInt oldSP = (*buffer)->mStackPointer;
     NeBufferRef newBuffer = NE_REALLOC(NeBuffer,
         (*buffer)->mSession, (*buffer),
         (*buffer)->mCapacity + sizeof(struct _NeBuffer),
@@ -1216,7 +1216,7 @@ static NeBool ExpandBuffer(NeBufferRef* buffer)
 
 // Return the number of bytes left in this buffer before it must expand again.
 //
-static NeUInt BufferSpace(NeBufferRef buffer)
+static NeInt BufferSpace(NeBufferRef buffer)
 {
     return buffer->mStackPointer - buffer->mCursor;
 }
@@ -1229,7 +1229,7 @@ static NeBool BufferAddFormatArgs(NeBufferRef* buffer, const char* format, va_li
 
     while (formatResult == -1)
     {
-        NeUInt spaceLeft = BufferSpace(*buffer);
+        NeInt spaceLeft = BufferSpace(*buffer);
 
         if (spaceLeft)
         {
@@ -1247,7 +1247,7 @@ static NeBool BufferAddFormatArgs(NeBufferRef* buffer, const char* format, va_li
         }
         else
         {
-            (*buffer)->mCursor += (NeUInt)formatResult;
+            (*buffer)->mCursor += (NeInt)formatResult;
             (*buffer)->mData[(*buffer)->mCursor] = 0;
         }
     }
@@ -1271,7 +1271,7 @@ static NeBool BufferAddFormatArgs(NeBufferRef* buffer, const char* format, va_li
 
 // Allocate some space on the buffer and return the address.  It will be 16 byte aligned
 //
-static NeBool BufferAlloc(NeBufferRef* buffer, NeUInt size, NE_OUT void** address)
+static NeBool BufferAlloc(NeBufferRef* buffer, NeInt size, NE_OUT void** address)
 {
     NeBool haveSpace = NE_YES;
 
@@ -1288,7 +1288,7 @@ static NeBool BufferAlloc(NeBufferRef* buffer, NeUInt size, NE_OUT void** addres
 
 // Add a memory block to our buffer
 //
-static void* BufferAdd(NeBufferRef* buffer, const void* memBlock, NeUInt size)
+static void* BufferAdd(NeBufferRef* buffer, const void* memBlock, NeInt size)
 {
     void* address;
 
@@ -1300,14 +1300,14 @@ static void* BufferAdd(NeBufferRef* buffer, const void* memBlock, NeUInt size)
 
 // Set a block of memory within the buffer at a position from the beginning of the non-committed data.
 //
-//static void BufferSet(NeBufferRef buffer, NeUInt position, const void* memBlock, NeUInt size)
+//static void BufferSet(NeBufferRef buffer, NeInt position, const void* memBlock, NeInt size)
 //{
 //    NE_ASSERT((buffer->mCommit + position + size) <= buffer->mCursor);
 //    CopyMemory(&buffer->mData[buffer->mCommit + position], memBlock, size);
 //}
 
 // Get a block of memory within a buffer according to position from the beginning of the non-committed data.
-static void* BufferGet(NeBufferRef buffer, NeUInt position, NeUInt size)
+static void* BufferGet(NeBufferRef buffer, NeInt position, NeInt size)
 {
     NE_ASSERT((buffer->mCommit + position + size) <= buffer->mCursor);
     return &buffer->mData[buffer->mCommit + position];
@@ -1315,8 +1315,8 @@ static void* BufferGet(NeBufferRef buffer, NeUInt position, NeUInt size)
 
 //static void BufferShrink(NeBufferRef* buffer)
 //{
-//    NeUInt origSize = sizeof(NeBuffer)+(*buffer)->mCapacity;
-//    NeUInt finalSize = sizeof(NeBuffer)+(*buffer)->mCursor;
+//    NeInt origSize = sizeof(NeBuffer)+(*buffer)->mCapacity;
+//    NeInt finalSize = sizeof(NeBuffer)+(*buffer)->mCursor;
 //    NeBufferRef newBuffer = NE_REALLOC(NeBuffer, (*buffer)->mSession, *buffer, origSize, finalSize, NeMemoryType_Buffer);
 //
 //    // We cannot have any saved data when we shrink
@@ -1329,12 +1329,12 @@ static void* BufferGet(NeBufferRef buffer, NeUInt position, NeUInt size)
 //    }
 //}
 
-static NeUInt BufferLength(NeBufferRef buffer)
+static NeInt BufferLength(NeBufferRef buffer)
 {
     return buffer->mCursor;
 }
 
-//static NeUInt BufferPosition(NeBufferRef buffer)
+//static NeInt BufferPosition(NeBufferRef buffer)
 //{
 //    return buffer->mCursor - buffer->mCommit;
 //}
@@ -1345,21 +1345,21 @@ static NeUInt BufferLength(NeBufferRef buffer)
 //
 static NeBool SaveBuffer(NeBufferRef* buffer)
 {
-    NeUInt sizeToSave = (*buffer)->mCursor - (*buffer)->mCommit;
+    NeInt sizeToSave = (*buffer)->mCursor - (*buffer)->mCommit;
 
     NE_ASSERT((*buffer)->mCursor >= (*buffer)->mCommit);
 
-    // Check to see we have enough space for the operation.  We need at least sizeof(NeUInt) free to
+    // Check to see we have enough space for the operation.  We need at least sizeof(NeInt) free to
     // store a size.
-    if (BufferSpace(*buffer) < sizeof(NeUInt))
+    if (BufferSpace(*buffer) < sizeof(NeInt))
     {
         if (!ExpandBuffer(buffer)) return NE_NO;
     }
 
     (*buffer)->mStackPointer -= sizeToSave;
     MoveMemory((*buffer)->mData + (*buffer)->mStackPointer, (*buffer)->mData + (*buffer)->mCommit, sizeToSave);
-    (*buffer)->mStackPointer -= sizeof(NeUInt);
-    *(NeUInt *)((*buffer)->mData + (*buffer)->mStackPointer) = sizeToSave;
+    (*buffer)->mStackPointer -= sizeof(NeInt);
+    *(NeInt *)((*buffer)->mData + (*buffer)->mStackPointer) = sizeToSave;
 
     (*buffer)->mCursor = (*buffer)->mCommit;
     return NE_YES;
@@ -1369,14 +1369,14 @@ static NeBool SaveBuffer(NeBufferRef* buffer)
 //
 static void RestoreBuffer(NeBufferRef buffer)
 {
-    NeUInt sizeToRestore;
+    NeInt sizeToRestore;
 
     NE_ASSERT(buffer->mStackPointer < buffer->mCapacity);
 
     buffer->mCursor = buffer->mCommit;
 
-    sizeToRestore = *(NeUInt *)&buffer->mData[buffer->mStackPointer];
-    buffer->mStackPointer += sizeof(NeUInt);
+    sizeToRestore = *(NeInt *)&buffer->mData[buffer->mStackPointer];
+    buffer->mStackPointer += sizeof(NeInt);
 
     MoveMemory(&buffer->mData[buffer->mCursor], &buffer->mData[buffer->mStackPointer], sizeToRestore);
     buffer->mStackPointer += sizeToRestore;
@@ -1428,7 +1428,7 @@ static NeBool FormatScratch(Nerd N, const char* format, ...)
     return result;
 }
 
-static NeBool AddScratchBuffer(Nerd N, const void* buffer, NeUInt size)
+static NeBool AddScratchBuffer(Nerd N, const void* buffer, NeInt size)
 {
     return BufferAdd(&N->mScratch, buffer, size) != 0 ? NE_YES : NE_NO;
 }
@@ -1443,7 +1443,7 @@ static const char* GetScratch(Nerd N)
     return (const char*)BufferGet(N->mScratch, 0, 0);
 }
 
-static NeUInt GetScratchLength(Nerd N)
+static NeInt GetScratchLength(Nerd N)
 {
     return BufferLength(N->mScratch);
 }
@@ -1456,10 +1456,10 @@ static NeUInt GetScratchLength(Nerd N)
 
 // Initialise a pool structure to the attributes passed into this function.
 //
-static void CreatePool(NePoolRef pool, Nerd N, NeUInt elemSize, NeUInt numElemsPerHeap,
+static void CreatePool(NePoolRef pool, Nerd N, NeInt elemSize, NeInt numElemsPerHeap,
     NePoolElemDestroyFunc destroyFunc)
 {
-    NeUInt padding = elemSize % 16;
+    NeInt padding = elemSize % 16;
 
     NE_ASSERT(numElemsPerHeap > 2);
     NE_ASSERT(elemSize > sizeof(void *));
@@ -1491,7 +1491,7 @@ static void DestroyPool(NePoolRef pool)
         if (pool->mDestroyFunc)
         {
             NeGcObjectRef elem = (NeGcObjectRef)NE_NEXT_ELEM(scan, pool);
-            NeUInt i = 1;
+            NeInt i = 1;
 
             for (; i < pool->mNumElems; ++i)
             {
@@ -1516,12 +1516,12 @@ static void PoolCollect(NePoolRef pool, void (*TraceFunc) (Nerd, void*))
 {
     void* heap = pool->mChain;
     NeGcObjectRef lastElem = 0;
-    NeUInt markColour = pool->mSession->mGlobalSession->mMarkColour;
+    NeInt markColour = pool->mSession->mGlobalSession->mMarkColour;
 
     while (heap)
     {
         NeGcObjectRef elem = (NeGcObjectRef)NE_NEXT_ELEM(heap, pool);
-        NeUInt i = 1;
+        NeInt i = 1;
 
         for (; i < pool->mNumElems; ++i)
         {
@@ -1552,7 +1552,7 @@ static void* ExpandPool(NePoolRef pool)
 {
     char* bytes = 0;
     void** header;
-    NeUInt i;
+    NeInt i;
 
     // Allocate the memory
     bytes = NE_ALLOC(char, pool->mSession, pool->mElemSize * pool->mNumElems, NeMemoryType_PoolHeap);
@@ -1570,7 +1570,7 @@ static void* ExpandPool(NePoolRef pool)
         gcObj->mNext = (NeGcObjectRef)(&bytes[(i + 1) * pool->mElemSize]);
         gcObj->mUsed = 0;
         // If this fails the element size is not a multiple of 16 bytes.
-        NE_ASSERT((((NeUInt)gcObj) & 0xf) == 0);
+        NE_ASSERT((((NeInt)gcObj) & 0xf) == 0);
     }
 
     ((NeGcObjectRef)(&bytes[(pool->mNumElems - 1) * pool->mElemSize]))->mNext = pool->mFreeList;
@@ -1583,7 +1583,7 @@ static void* ExpandPool(NePoolRef pool)
 
 // Acquire a number of elements from this pool.
 //
-static void* PoolAcquire(NePoolRef pool, NeUInt numElems, NeUInt type)
+static void* PoolAcquire(NePoolRef pool, NeInt numElems, NeInt type)
 {
     NeGcObjectRef newElems = 0;
     NeGcObjectRef scan = 0;
@@ -1811,7 +1811,7 @@ void NeGarbageCollect(Nerd N)
 
 // Link a garbage collected data structure to a list pointed to by root.
 //
-static void LinkObject(Nerd N, NE_IN_OUT NeGcObjectRef* root, NeGcObjectRef object, NeUInt type)
+static void LinkObject(Nerd N, NE_IN_OUT NeGcObjectRef* root, NeGcObjectRef object, NeInt type)
 {
     object->mMarked = 0;
     object->mUsed = 1;
@@ -1830,7 +1830,7 @@ static void LinkObject(Nerd N, NE_IN_OUT NeGcObjectRef* root, NeGcObjectRef obje
 // wonderful in my books!).
 //----------------------------------------------------------------------------------------------------
 
-static NeUInt32 Hash(const void* buffer, NeUInt size, NeUInt32 seed)
+static NeUInt32 Hash(const void* buffer, NeInt size, NeUInt32 seed)
 {
     const NeUInt32 m = 0x5bd1e995;
     const int r = 24;
@@ -1900,7 +1900,7 @@ void NeRecycleCons(Nerd N, NeValue v)
     PoolRecycle(&G(mCellsPool), NE_CAST(v, NeCell));
 }
 
-NeValue NeCreateList(Nerd N, NeUInt numElems)
+NeValue NeCreateList(Nerd N, NeInt numElems)
 {
     NeCellRef list = (NeCellRef)PoolAcquire(&G(mCellsPool), numElems, NE_PT_CELL);
     return NE_BOX(list, NE_PT_CELL);
@@ -1929,9 +1929,9 @@ static NeValue CreateCharacter(NeChar ch)
 
 // Allocate memory to hold string information and its data including the null terminator.
 //
-static NeStringInfoRef AllocString(Nerd N, NeUInt numCharacters)
+static NeStringInfoRef AllocString(Nerd N, NeInt numCharacters)
 {
-    NeUInt sizeMem = sizeof(NeStringInfo)+numCharacters + 1;
+    NeInt sizeMem = sizeof(NeStringInfo)+numCharacters + 1;
     NeStringInfoRef newString = NE_ALLOC(NeStringInfo, N, sizeMem, NeMemoryType_String);
 
     if (newString)
@@ -1947,7 +1947,7 @@ static NeStringInfoRef AllocString(Nerd N, NeUInt numCharacters)
 
 // Given a string buffer, hash and number of bytes, create a Nerd string and return the value.
 //
-NeValue CreateString(Nerd N, const char* str, NeUInt size, NeUInt32 hash)
+NeValue CreateString(Nerd N, const char* str, NeInt size, NeUInt32 hash)
 {
     NeStringInfoRef strInfo;
     NeValue result = 0;
@@ -1969,7 +1969,7 @@ NeValue CreateString(Nerd N, const char* str, NeUInt size, NeUInt32 hash)
 
 // Given a string buffer and number of bytes, create a Nerd string and return the value.
 //
-NeValue NeCreateString(Nerd N, const char* str, NeUInt size)
+NeValue NeCreateString(Nerd N, const char* str, NeInt size)
 {
     if (-1 == size) size = StrLen(str);
 
@@ -1994,7 +1994,7 @@ NeString NeGetString(NeValue v)
 
 // Get the string part of the value
 //
-NeUInt NeGetStringLength(Nerd N, NeValue v)
+NeInt NeGetStringLength(Nerd N, NeValue v)
 {
     NeStringInfoRef info = NE_CAST(v, NeStringInfo);
 
@@ -2008,7 +2008,7 @@ NeUInt NeGetStringLength(Nerd N, NeValue v)
     }
 }
 
-NeInt NeCompareString(Nerd N, NeValue strValue, const char* cString, NeUInt size)
+NeInt NeCompareString(Nerd N, NeValue strValue, const char* cString, NeInt size)
 {
     NeStringInfoRef info = NE_CAST(strValue, NeStringInfo);
     const char* str = info->mString;
@@ -2046,7 +2046,7 @@ static void InitTable(Nerd N, NeTableRef table, NeTableRef parent)
 static void DestroyTableElement(Nerd N, void* tableObject)
 {
     NeTableRef table = (NeTableRef)tableObject;
-    NeUInt numNodes = table->mNodes ? 1ull << table->mLogNumNodes : 0;
+    NeInt numNodes = table->mNodes ? 1ull << table->mLogNumNodes : 0;
     NE_FREE(N, table->mNodes, numNodes * sizeof(NeNode), NeMemoryType_TableNodes);
     InitTable(N, table, 0);
 }
@@ -2055,11 +2055,11 @@ static void DestroyTableElement(Nerd N, void* tableObject)
 //
 static void MarkTable(Nerd N, NeTableRef table, NeBool markKeys)
 {
-    NeUInt i = 0;
+    NeInt i = 0;
 
     while (table)
     {
-        NeUInt numNodes = 1ull << table->mLogNumNodes;
+        NeInt numNodes = 1ull << table->mLogNumNodes;
 
         if (table->mGcObj.mMarked != G(mMarkColour))
         {
@@ -2140,10 +2140,10 @@ static NeNodeRef TablePosition(NeTableRef table, NeValue key)
 
 // Allocate memory for an array of nodes for a given size.
 //
-static NeBool SetNodeArray(Nerd N, NeTableRef table, NeUInt logSize)
+static NeBool SetNodeArray(Nerd N, NeTableRef table, NeInt logSize)
 {
-    NeUInt numNodes = 0;
-    NeUInt i;
+    NeInt numNodes = 0;
+    NeInt i;
 
     //     if ((0 == numNodes) && table->mNodes)
     //     {
@@ -2281,9 +2281,9 @@ static NeValue* NewTableSlot(Nerd N, NeTableRef table, NeValue key)
         if (!freeNode)
         {
             NeNode* oldNodes = table->mNodes;
-            NeUInt oldNodesSize = table->mLogNumNodes;
+            NeInt oldNodesSize = table->mLogNumNodes;
             NeValueRef slot = 0;
-            NeUInt i;
+            NeInt i;
 
             if (!SetNodeArray(N, table, table->mNodes ? table->mLogNumNodes + 1 : 0))
             {
@@ -2392,7 +2392,7 @@ NeValue NeGetValue(NeValue kv)
 // They are stored in the symbol table whose keys are the hash values of the symbol name.
 //
 
-static NeBool StringEqual(NeStringInfoRef strInfo, const char* str, NeUInt size, NeUInt32 hash)
+static NeBool StringEqual(NeStringInfoRef strInfo, const char* str, NeInt size, NeUInt32 hash)
 {
     if (strInfo->mHash != hash) return NE_NO;
     if (strInfo->mLength != size) return NE_NO;
@@ -2400,7 +2400,7 @@ static NeBool StringEqual(NeStringInfoRef strInfo, const char* str, NeUInt size,
     return (strncmp(strInfo->mString, str, (size_t)size) == 0) ? NE_YES : NE_NO;
 }
 
-NeValue CreateSymbol(Nerd N, const char* str, NeUInt size, NeUInt32 hash, NeValue type)
+NeValue CreateSymbol(Nerd N, const char* str, NeInt size, NeUInt32 hash, NeValue type)
 {
     NeValue* slot = 0;
     NeValue newSym = 0;
@@ -2458,7 +2458,7 @@ NeValue CreateSymbol(Nerd N, const char* str, NeUInt size, NeUInt32 hash, NeValu
     return newSym;
 }
 
-NeValue NeCreateSymbol(Nerd N, const char* str, NeUInt size)
+NeValue NeCreateSymbol(Nerd N, const char* str, NeInt size)
 {
     if (-1 == size)
     {
@@ -2468,7 +2468,7 @@ NeValue NeCreateSymbol(Nerd N, const char* str, NeUInt size)
     return CreateSymbol(N, str, size, Hash(str, size, NE_DEFAULT_SEED), NE_PT_SYMBOL);
 }
 
-NeValue NeCreateKeyword(Nerd N, const char* str, NeUInt size)
+NeValue NeCreateKeyword(Nerd N, const char* str, NeInt size)
 {
     if (0 == size)
     {
@@ -2614,7 +2614,7 @@ static NeInt GetGCD(NeInt a, NeInt b)
         // can be done in-place.
         if (a > b)
         {
-            NeUInt t = b;
+            NeInt t = b;
             b = a;
             a = t;
         }
@@ -2669,27 +2669,27 @@ NeValue NeSetNumber(Nerd N, NeValue origValue, const NeNumberRef number)
     case NeNumberType_Ratio:
         if (number->mNumerator <= NE_MAX_INT(28) &&
             number->mNumerator >= NE_MIN_INT(28) &&
-            number->mDenominator <= NE_MAX_INT(29))
+            number->mDenominator <= NE_MAX_INT(28))
         {
             // This can be stored as a short ratio.
             // The numerator is stored as a signed in the top 28 bits, whereas the denominator (which is always positive),
             // is stored unsigned in the next 28 bits.
-            NeUInt d = number->mDenominator & 0xfffffffull;
-            NeUInt n = number->mNumerator << 28;
-            NeUInt i = *(NeUInt *)&d + *(NeUInt *)&n;
+            NeInt d = number->mDenominator & 0xfffffffull;
+            NeInt n = number->mNumerator << 28;
+            NeInt i = *(NeInt *)&d + *(NeInt *)&n;
             return NE_MAKE_EXTENDED_VALUE(NE_XT_SHORTRATIO, i);
         }
         break;
 
     case NeNumberType_Float:
-    {
-                               NeUInt floatBits = *(NeUInt *)&number->mFloat;
-                               if ((floatBits & 0xff) == 0)
-                               {
-                                   NeValue result = NE_MAKE_EXTENDED_VALUE(NE_XT_SHORTFLOAT, (floatBits >> 8));
-                                   return result;
-                               }
-    }
+        {
+            NeInt floatBits = *(NeInt *)&number->mFloat;
+            if ((floatBits & 0xff) == 0)
+            {
+                NeValue result = NE_MAKE_EXTENDED_VALUE(NE_XT_SHORTFLOAT, (floatBits >> 8));
+                return result;
+            }
+        }
         break;
     }
 
@@ -3267,15 +3267,15 @@ static const char* gKeywords[NeToken_COUNT - NeToken_KEYWORDS] =
 
 typedef struct _NeLex
 {
-    Nerd        mMachine;       // The virtual machine that started the lexical analyser
+    Nerd                mMachine;       // The virtual machine that started the lexical analyser
     const char*         mSource;        // The source code name passed to the lexical analyser
-    NeUInt              mLine;          // The current line number
-    NeUInt              mLastLine;      // The line number of the last character
+    NeInt               mLine;          // The current line number
+    NeInt               mLastLine;      // The line number of the last character
     const char*         mCursor;        // The current read position in the stream
     const char*         mEnd;           // Points past the last character in the stream
     const char*         mLastCursor;    // The read position of the last character
     void*               mTempBuffer;    // A copy of the source code if it isn't NULL terminated.
-    NeUInt              mTempBufferSize;
+    NeInt               mTempBufferSize;
 
     NeToken             mToken;         // The last token read
 
@@ -3291,7 +3291,7 @@ NeLex, *NeLexRef;
 
 // Initialise a lexical analyser structure for a reading session
 //
-static NeBool InitLex(Nerd N, const char* source, const char* buffer, NeUInt size,
+static NeBool InitLex(Nerd N, const char* source, const char* buffer, NeInt size,
     NE_IN_OUT NeLex* L)
 {
     if (buffer[size - 1] != 0)
@@ -3448,7 +3448,7 @@ static NeToken NextToken(NeLexRef L)
             if ('|' == c)
             {
                 // Nestable, multi-line comment
-                NeUInt depth = 1;
+                NeInt depth = 1;
                 while (c != 0 && depth)
                 {
                     c = NextChar(L);
@@ -3657,7 +3657,7 @@ static NeToken NextToken(NeLexRef L)
                 // End of number
                 if (isFloat)
                 {
-                    NeUInt len = (NeUInt)(L->mCursor - floatStart - 1);
+                    NeInt len = (NeInt)(L->mCursor - floatStart - 1);
                     if (c == '/') goto bad;
 
                     UngetChar(L);
@@ -3799,7 +3799,7 @@ static NeToken NextToken(NeLexRef L)
 
     else if ((gNameChar[c] == 1) || (c == ':'))
     {
-        NeUInt sizeToken = 0;
+        NeInt sizeToken = 0;
         NeBool isKeyword = NE_NO;
 
         // Check for user keyword (e.g. :foo), and set the flag isKeyword if true.
@@ -3833,19 +3833,19 @@ static NeToken NextToken(NeLexRef L)
         UngetChar(L);
 
         L->mEndToken = L->mCursor;
-        sizeToken = (NeUInt)(L->mEndToken - L->mStartToken);
+        sizeToken = (NeInt)(L->mEndToken - L->mStartToken);
         L->mHash = Hash(L->mStartToken, sizeToken, NE_DEFAULT_SEED);
 
         // Now we determine if this is a built-in keyword or not with a separate token.
         if (!isKeyword)
         {
-            NeUInt tokens = gKeyWordHashes[L->mHash & 0xf];
+            NeInt tokens = gKeyWordHashes[L->mHash & 0xf];
             while (tokens != 0)
             {
                 int index = (tokens & 0xff) - NeToken_KEYWORDS;
                 tokens >>= 8;
 
-                if ((NeUInt)(*gKeywords[index] - '0') == sizeToken)
+                if ((NeInt)(*gKeywords[index] - '0') == sizeToken)
                 {
                     // The length of the tokens match with the keyword we're currently checking against.
                     if (strncmp(L->mStartToken, gKeywords[index] + 1, (size_t)sizeToken) == 0)
@@ -3963,11 +3963,11 @@ static NeToken NextToken(NeLexRef L)
 
         {
             int i = 0;
-            NeUInt tokenLen = (NeUInt)(L->mEndToken - L->mStartToken);
+            NeInt tokenLen = (NeInt)(L->mEndToken - L->mStartToken);
 
             for (i = 0; gCharmap[i].name; ++i)
             {
-                NeUInt lenToken = (NeUInt)gCharmap[i].name[0] - '0' + 1;
+                NeInt lenToken = (NeInt)gCharmap[i].name[0] - '0' + 1;
                 if (lenToken != tokenLen) continue;
 
                 if (strncmp(gCharmap[i].name + 1, L->mStartToken, (size_t)tokenLen) == 0)
@@ -4121,9 +4121,9 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
     case NE_PT_TABLE:
         {
             NeTableRef table = NE_CAST(v, NeTable);
-            NeUInt numNodes = table->mNodes ? 1 << table->mLogNumNodes : 0;
+            NeInt numNodes = table->mNodes ? 1 << table->mLogNumNodes : 0;
             NeNodeRef node = table->mNodes;
-            NeUInt i = 0;
+            NeInt i = 0;
             NeBool printSpace = NE_NO;
 
             if (!FormatScratch(N, "[")) return NE_NO;
@@ -4300,7 +4300,7 @@ static char* AllocDescription(Nerd N, NeValue v)
         SaveScratch(N);
         ConvertToString(N, v, NE_CONVERT_MODE_REPL);
         NeString desc = GetScratch(N);
-        NeUInt len = GetScratchLength(N);
+        NeInt len = GetScratchLength(N);
         str = NE_ALLOC(char, N, len + 1, NeMemoryType_Temp);
         CopyMemory(str, desc, len);
         str[len] = 0;
@@ -4467,7 +4467,7 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NeValue env, N
 {
     const char* start = lex->mStartToken;
     const char* end = lex->mEndToken;
-    NeUInt size = (NeUInt)(end - start);
+    NeInt size = (NeInt)(end - start);
 
     *result = 0;
 
@@ -4924,7 +4924,7 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
 //
 // TODO: Add env parameter to NeRead
 //
-NeBool NeRead(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValue* codeList)
+NeBool NeRead(Nerd N, const char* source, const char* str, NeInt size, NE_OUT NeValue* codeList)
 {
     NeBool success;
     NeLex lex;
@@ -5250,7 +5250,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
         case NE_XT_NATIVE:
             // Execute a native function
             {
-                NeUInt index = NE_EXTENDED_VALUE(func);
+                NeInt index = NE_EXTENDED_VALUE(func);
                 NeNativeFunc* func;
 
                 func = BufferGet(G(mNativeFuncBuffer), index * sizeof(NeNativeFunc), sizeof(NeNativeFunc));
@@ -5397,7 +5397,7 @@ NeBool NeEval(Nerd N, NeValue expression, NeValue environment, NE_OUT NeValueRef
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValueRef result)
+static NeBool Run(Nerd N, const char* source, const char* str, NeInt size, NE_OUT NeValueRef result)
 {
     NeValue codeList = 0;
     *result = 0;
@@ -5420,7 +5420,7 @@ static NeBool Run(Nerd N, const char* source, const char* str, NeUInt size, NE_O
     return NE_YES;
 }
 
-NeBool NeRun(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValueRef result)
+NeBool NeRun(Nerd N, const char* source, const char* str, NeInt size, NE_OUT NeValueRef result)
 {
     NeBool success;
 
@@ -5459,7 +5459,7 @@ void NeDebugReset(Nerd N)
 
 NeBool NeRegisterNative(Nerd N, const char* nativeName, NeValue environment, NeNativeFunc func)
 {
-    NeUInt index = BufferLength(G(mNativeFuncBuffer)) / sizeof(NeNativeFunc);
+    NeInt index = BufferLength(G(mNativeFuncBuffer)) / sizeof(NeNativeFunc);
     NeValue sym;
     NeTableRef env;
     
@@ -5504,7 +5504,7 @@ static NeBool N_Fn(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     NeValue body;
     NeValue scan;
-    NeUInt index = 1;
+    NeInt index = 1;
     NeValue func;
 
     // Get body of function
@@ -5744,7 +5744,7 @@ static NeBool N_Cond(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result
     NeValue elseSymbol = NeCreateSymbol(N, "else", 4);
     NeValue kv = 0;
     NeValue expr = 0;
-    NeUInt argN = 2;
+    NeInt argN = 2;
     
     if (!elseSymbol) return NeOutOfMemory(N);
     
@@ -5864,7 +5864,7 @@ static NeBool N_ReplPrnBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef
 static NeBool N_Length(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     NeValue seq;
-    NeUInt len = 0;
+    NeInt len = 0;
 
     NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
     NE_EVAL(N, NE_1ST(args), env, seq);
@@ -5933,7 +5933,7 @@ static NeValue DoArith(Nerd N, NeValue args, NeValue env,
 {
     NeValue result;
     NeValue arg;
-    NeUInt index = 2;
+    NeInt index = 2;
 
     // TOOD: Re-use intermediate result so not to keep creating floats.
 

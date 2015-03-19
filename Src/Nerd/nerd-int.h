@@ -34,7 +34,7 @@ extern "C"
 #define NE_CELL(v) NE_CAST(v, NeCell)
 
 // Converts an address and a Nerd type (4 bit code) into a NeValue
-#define NE_BOX(p, tt) (((NeUInt)(p) & ~0xfull) | (tt))
+#define NE_BOX(p, tt) (((NeBits)(p) & ~0xfull) | (tt))
 
 // Gets the type of a TiValue
 #define NE_TYPEOF(v) ((v) & 0x0f)
@@ -245,7 +245,7 @@ NeType;
 #define NE_QUOTE_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_QUOTE)
 #define NE_LAMBDA_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_LAMBDA)
 #define NE_MACROSYM_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_MACROSYM)
-#define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? (NeUInt)1 : (NeUInt)0))
+#define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? (NeInt)1 : (NeInt)0))
 #define NE_YES_VALUE                    NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 1)
 #define NE_NO_VALUE                     NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 0)
 #define NE_BACKQUOTE_VALUE              NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_BACKQUOTE)
@@ -269,7 +269,7 @@ typedef uint32_t NeUInt32;
 //
 // Cells are the building blocks for most data and code.
 //
-#define NE_GC_HEADER	NeUInt mMarked:1; NeUInt mUsed:1; NeUInt mType:4;
+#define NE_GC_HEADER	NeBits mMarked:1; NeBits mUsed:1; NeBits mType:4;
 
 typedef struct _NeCell
 {
@@ -299,7 +299,7 @@ NeNumberType;
 typedef struct _NeNumber
 {
     struct {
-        NE_GC_HEADER		// Header wrapped in structure to stop mType being merged into the NeUInt
+        NE_GC_HEADER		// Header wrapped in structure to stop mType being merged into the NeBits
     };
     NeNumberType	mNumType;
     union {
@@ -319,9 +319,9 @@ NeNumber, *NeNumberRef;
 // zero).  These functions will assert that this is the case.
 //----------------------------------------------------------------------------------------------------
 
-void* _NeAlloc(Nerd N, NeUInt size, NeMemoryType memoryType, const char* file, int line);
-void* _NeRealloc(Nerd N, void* address, NeUInt oldSize, NeUInt newSize, NeMemoryType memoryType, const char* file, int line);
-void _NeFree(Nerd N, void* address, NeUInt oldSize, NeMemoryType memoryType, const char* file, int line);
+void* _NeAlloc(Nerd N, NeInt size, NeMemoryType memoryType, const char* file, int line);
+void* _NeRealloc(Nerd N, void* address, NeInt oldSize, NeInt newSize, NeMemoryType memoryType, const char* file, int line);
+void _NeFree(Nerd N, void* address, NeInt oldSize, NeMemoryType memoryType, const char* file, int line);
 
 // Macros that should be used instead of calling the functions above directly
 #define NE_ALLOC(pointerType, N, size, type) (pointerType *)_NeAlloc((N), (size), (type), __FILE__, __LINE__)
@@ -403,7 +403,7 @@ void NeRecycleCons(Nerd N, NeValue v);
 
 // Create a list with a given number of elements
 //
-NeValue NeCreateList(Nerd N, NeUInt numElems);
+NeValue NeCreateList(Nerd N, NeInt numElems);
 
 //----------------------------------------------------------------------------------------------------
 // String management
@@ -415,11 +415,11 @@ NeString NeGetString(NeValue v);
 
 // Get the string or symbol's length.  Will return 0 if v is not a string or symbol.
 //
-NeUInt NeGetStringLength(Nerd N, NeValue v);
+NeInt NeGetStringLength(Nerd N, NeValue v);
 
 // Compare a string, symbol or keyword value with a C string.  Keywords will not compare the initial
 // colons.
-NeInt NeCompareString(Nerd N, NeValue strValue, const char* cString, NeUInt size);
+NeInt NeCompareString(Nerd N, NeValue strValue, const char* cString, NeInt size);
 
 //----------------------------------------------------------------------------------------------------
 // Symbol management
@@ -427,11 +427,11 @@ NeInt NeCompareString(Nerd N, NeValue strValue, const char* cString, NeUInt size
 
 // Creates a symbol, if new, or just returns a previous reference if created before.
 //
-NeValue NeCreateSymbol(Nerd N, const char* str, NeUInt size);
+NeValue NeCreateSymbol(Nerd N, const char* str, NeInt size);
 
 // Creates a keyword, if new, or just returns a previous reference if created before.
 //
-NeValue NeCreateKeyword(Nerd N, const char* str, NeUInt size);
+NeValue NeCreateKeyword(Nerd N, const char* str, NeInt size);
 
 // Return the symbol's name
 //
@@ -519,7 +519,7 @@ NeValue NeCreateClosure(Nerd N, NeValue args, NeValue body, NeValue environment)
 
 // Read a string in a generate a sequence
 //
-NeBool NeRead(Nerd N, const char* source, const char* code, NeUInt size, NeValueRef result);
+NeBool NeRead(Nerd N, const char* source, const char* code, NeInt size, NeValueRef result);
     
 //----------------------------------------------------------------------------------------------------
 // Compilation
@@ -606,12 +606,12 @@ NeString NeGetTypeName(NeType t);
 
 // Returns true if the argument is of the correct type.
 //
-NeBool NeCheckArgType(Nerd N, NeValue arg, NeUInt index, NeType expectedArgType);
+NeBool NeCheckArgType(Nerd N, NeValue arg, NeInt index, NeType expectedArgType);
 
 // Returns NE_YES if the list of arguments has n arguments.  If exactCount is NE_YES, then the list
 // must have exactly that number, otherwise at least that number is sufficient for a pass.
 //
-NeBool NeCheckNumArgs(Nerd N, NeValue args, NeUInt count, NeBool exactCount);
+NeBool NeCheckNumArgs(Nerd N, NeValue args, NeInt count, NeBool exactCount);
 
 // This makes a runtime check to see if the number of arguments is at least n arguments.
 //

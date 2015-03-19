@@ -406,7 +406,7 @@ int main(int argc, const char** argv)
 
                         case 'l':
                             {
-                                NeUInt i;
+                                NeInt i;
                                 for (i = 0; input[i] != 0; ++i)
                                 {
                                     if (input[i] == '\n') input[i] = 0;

@@ -40,7 +40,6 @@ extern "C" {
 //----------------------------------------------------------------------------------------------------
 
 typedef long long NeInt;            // Standard integer size of Nerd - always 64-bit
-typedef unsigned long long NeUInt;  // Unsigned version of standard integer
 typedef double NeFloat;             // Standard float of Nerd - always 64-bit
 typedef char NeBool;                // Boolean result.  Always either NE_YES or NE_NO.
 typedef char NeChar;                // Character allowed in Nerd (currently ASCII only).
@@ -55,7 +54,9 @@ typedef const NeChar* NeString;     // This string is managed - can be freed by 
 // The opaque type that represents a Nerd virtual machine (NVM).
 typedef struct _Nerd* Nerd;
 
-typedef NeUInt NeValue;
+typedef unsigned long long NeBits;  // NeBits is an unsigned version of NeInt and used for values 
+                                    // where bit position is important (like NeValue and bit fields).
+typedef NeBits NeValue;
 typedef NeValue* NeValueRef;
 
 //----------------------------------------------------------------------------------------------------
@@ -88,8 +89,8 @@ typedef struct _NeMemoryOp
 {
     Nerd            mSession;       // The session that is making the memory operation
     void*           mAddress;       // The address for deallocations and reallocations of the original buffer
-    NeUInt          mOldSize;       // The size of the buffer before this operation
-    NeUInt          mNewSize;       // The intended size of the buffer after this operation
+    NeInt           mOldSize;       // The size of the buffer before this operation
+    NeInt           mNewSize;       // The intended size of the buffer after this operation
     NeMemoryType    mType;          // The type of memory being allocated
 }
 NeMemoryOp, *NeMemoryOpRef;
@@ -113,7 +114,7 @@ NeConfigCallbacks;
 typedef struct _NeConfig
 {
     NeConfigCallbacks   mCallbacks;             // All the callbacks
-    NeUInt				mProcessStackSize;		// Size of the stacks used by processes
+    NeInt               mProcessStackSize;      // Size of the stacks used by processes
 }
 NeConfig, *NeConfigRef;
 
@@ -182,7 +183,7 @@ NeValue NeCreateCons(Nerd N, NeValue head, NeValue tail);
 // Create a value from a string.  Use -1 for size if the string is null terminated and you want
 // to calculate this programmatically.
 //
-NeValue NeCreateString(Nerd N, const char* str, NeUInt size);
+NeValue NeCreateString(Nerd N, const char* str, NeInt size);
 
 
 
@@ -205,7 +206,7 @@ NeString NeGetError(Nerd N);
 // The source parameter is a string that describes where the code came from.  This is used in error
 // messages to help the user pinpoint them.
 //
-NeBool NeRun(Nerd N, const char* source, const char* str, NeUInt size, NE_OUT NeValueRef result);
+NeBool NeRun(Nerd N, const char* source, const char* str, NeInt size, NE_OUT NeValueRef result);
 
 //----------------------------------------------------------------------------------------------------
 // Debugging

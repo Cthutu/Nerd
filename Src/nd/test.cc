@@ -8,10 +8,10 @@
 
 typedef struct _TestInfo
 {
-    Nerd		mSession;
-    NeUInt		mPassedTests;
-    NeUInt		mFailedTests;
-    NeUInt      mWarnings;
+    Nerd        mSession;
+    NeInt       mPassedTests;
+    NeInt       mFailedTests;
+    NeInt       mWarnings;
     NeValue     mResult;
 }
 TestInfo, *TestInfoRef;
@@ -172,7 +172,7 @@ void TestMain()
 
     if ((f = fopen("core.tt", "r")))
     {
-        NeUInt line = 0;
+        NeInt line = 0;
         // Read in the tests
         // The format of each line can be one of 4 formats:
         //
