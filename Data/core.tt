@@ -310,3 +310,12 @@ Macro.If.False					if: (?cond ?then ?else) => `(cond ,?cond: ,?then else: ,?else
 FileTest.String					@test.string.n												"123"
 FileTest.Average				@test.average.n												36.3333
 FileTest.Macros					@test.macro.n												"even"
+
+#
+# Tables
+#
+
+Table.Lookup.1					x:[a:42] (x 'a)												42
+Table.Lookup.2					x:[a:42 b:36] (x 'b)										36
+Table.Lookup.Keyword			x:[a:42 b:36] (x :b)										36
+Table.Lookup.SubTable			x:[a:42 b:[c:56 d:72]] (x :b :d)							72

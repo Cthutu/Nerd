@@ -5154,71 +5154,71 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
         }
         break;
 
-        case NE_PT_STRING:
+    case NE_PT_STRING:
+        {
+            NeValue indexValue;
+            NeValue sizeValue = 0;
+            NeNumber index;
+            NeNumber size;
+            NeStringInfoRef info = NE_CAST(func, NeStringInfo);
+            const char* str = 0;
+
+            if (0 == args)
             {
-                NeValue indexValue;
-                NeValue sizeValue = 0;
-                NeNumber index;
-                NeNumber size;
-                NeStringInfoRef info = NE_CAST(func, NeStringInfo);
-                const char* str = 0;
-
-                if (0 == args)
-                {
-                    return NeError(N, "Require at least an index to subscript a string.");
-                }
-
-                if (!Evaluate(N, NE_1ST(args), environment, &indexValue)) return NE_NO;
-                if (NE_TAIL(args) != 0)
-                {
-                    if (!Evaluate(N, NE_2ND(args), environment, &sizeValue))  return NE_NO;
-                }
-
-                if (!NE_IS_INTEGER(indexValue))
-                {
-                    return NeError(N, "Invalid string index.");
-                }
-                if (sizeValue && !NE_IS_INTEGER(sizeValue))
-                {
-                    return NeError(N, "Invalid length parameter for string subscripts.");
-                }
-
-                if (!NeGetNumber(indexValue, &index)) return NE_NO;
-                if (0 != sizeValue && !NeGetNumber(sizeValue, &size)) return NE_NO;
-
-                if (index.mInteger < 0 || index.mInteger >= (NeInt)info->mLength)
-                {
-                    return NeError(N, "Index out of range in string subscript.");
-                }
-
-                if (0 == sizeValue)
-                {
-                    size.mInteger = 1;
-                }
-                else
-                {
-                    if ((size.mInteger < 0) ||
-                        ((index.mInteger + size.mInteger) > (NeInt)info->mLength))
-                    {
-                        return NeError(N, "Invalid size parameter for string subscript.");
-                    }
-                }
-
-                // We now have the index and size.  Create a new string or character.
-                str = &info->mString[index.mInteger];
-
-                if (0 == sizeValue)
-                {
-                    // Create a character
-                    *result = CreateCharacter(*str);
-                }
-                else
-                {
-                    *result = CreateString(N, str, size.mInteger, Hash(str, size.mInteger, NE_DEFAULT_SEED));
-                }
-                return *result != 0;
+                return NeError(N, "Require at least an index to subscript a string.");
             }
-            break;
+
+            if (!Evaluate(N, NE_1ST(args), environment, &indexValue)) return NE_NO;
+            if (NE_TAIL(args) != 0)
+            {
+                if (!Evaluate(N, NE_2ND(args), environment, &sizeValue))  return NE_NO;
+            }
+
+            if (!NE_IS_INTEGER(indexValue))
+            {
+                return NeError(N, "Invalid string index.");
+            }
+            if (sizeValue && !NE_IS_INTEGER(sizeValue))
+            {
+                return NeError(N, "Invalid length parameter for string subscripts.");
+            }
+
+            if (!NeGetNumber(indexValue, &index)) return NE_NO;
+            if (0 != sizeValue && !NeGetNumber(sizeValue, &size)) return NE_NO;
+
+            if (index.mInteger < 0 || index.mInteger >= (NeInt)info->mLength)
+            {
+                return NeError(N, "Index out of range in string subscript.");
+            }
+
+            if (0 == sizeValue)
+            {
+                size.mInteger = 1;
+            }
+            else
+            {
+                if ((size.mInteger < 0) ||
+                    ((index.mInteger + size.mInteger) > (NeInt)info->mLength))
+                {
+                    return NeError(N, "Invalid size parameter for string subscript.");
+                }
+            }
+
+            // We now have the index and size.  Create a new string or character.
+            str = &info->mString[index.mInteger];
+
+            if (0 == sizeValue)
+            {
+                // Create a character
+                *result = CreateCharacter(*str);
+            }
+            else
+            {
+                *result = CreateString(N, str, size.mInteger, Hash(str, size.mInteger, NE_DEFAULT_SEED));
+            }
+            return *result != 0;
+        }
+        break;
 
     case NE_PT_FUNCTION:
     case NE_PT_MACRO:
@@ -5241,6 +5241,39 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
 
             // Execute the function.
             return EvaluateList(N, funcBody, NE_CAST(execEnv, NeTable), result);
+        }
+        break;
+
+    case NE_PT_TABLE:
+        {
+            while (args)
+            {
+                NeValue key;
+                NeValueRef slot;
+
+                if (!NE_IS_TABLE(func))
+                {
+                    return NeError(N, "Trying to index a non-table in a table index expression.");
+                }
+
+                if (!Evaluate(N, NE_HEAD(args), environment, &key)) return NE_NO;
+                if (NE_IS_KEYWORD(key))
+                {
+                    key = NE_BOX(key, NE_PT_SYMBOL);
+                }
+                slot = NeGetTableSlot(N, func, key, NE_YES);
+                if (!slot)
+                {
+                    *result = 0;
+                    return NE_YES;
+                }
+
+                func = *slot;
+                args = NE_TAIL(args);
+            }
+
+            *result = func;
+            return NE_YES;
         }
         break;
 
