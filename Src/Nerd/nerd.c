@@ -5821,6 +5821,43 @@ static NeBool N_SetBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef res
 }
 
 //----------------------------------------------------------------------------------------------------
+// Output
+//----------------------------------------------------------------------------------------------------
+
+static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result);
+static NeBool N_ReplStr(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result);
+
+static NeBool PrintHelper(Nerd N, NeValue args, NeValue env, const char* format, NeNativeFunc strFunc, NE_OUT NeValueRef result)
+{
+    NeBool success = strFunc(N, args, env, result);
+    if (success)
+    {
+        NeOut(N, format, NeToString(N, *result, NE_CONVERT_MODE_NORMAL));
+    }
+    return success;
+}
+
+static NeBool N_PrBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    return PrintHelper(N, args, env, "%s", &N_Str, result);
+}
+
+static NeBool N_PrnBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    return PrintHelper(N, args, env, "%s\n", &N_Str, result);
+}
+
+static NeBool N_ReplPrBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    return PrintHelper(N, args, env, "%s", &N_ReplStr, result);
+}
+
+static NeBool N_ReplPrnBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    return PrintHelper(N, args, env, "%s\n", &N_ReplStr, result);
+}
+
+//----------------------------------------------------------------------------------------------------
 // Sequences
 //----------------------------------------------------------------------------------------------------
 
@@ -6181,7 +6218,7 @@ static NeBool N_NotEqual(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef re
     return NE_YES;
 }
 
-static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+static NeBool StrHelper(Nerd N, NeValue args, NeValue env, int mode, NE_OUT NeValueRef result)
 {
     SaveScratch(N);
 
@@ -6190,7 +6227,7 @@ static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
         NeValue elem;
 
         if (!NeEval(N, NE_HEAD(args), env, &elem) ||
-            !ConvertToString(N, elem, NE_CONVERT_MODE_NORMAL))
+            !ConvertToString(N, elem, mode))
         {
             RestoreScratch(N);
             return NE_NO;
@@ -6202,6 +6239,16 @@ static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     *result = NeCreateString(N, GetScratch(N), GetScratchLength(N));
     RestoreScratch(N);
     return *result != 0;
+}
+
+static NeBool N_Str(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    return StrHelper(N, args, env, NE_CONVERT_MODE_NORMAL, result);
+}
+
+static NeBool N_ReplStr(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    return StrHelper(N, args, env, NE_CONVERT_MODE_REPL, result);
 }
 
 static NeBool N_Int(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
@@ -6327,6 +6374,12 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("list", N_List)               // (list v1 v2...)
         NE_NATIVE("set!", N_SetBang)            // (set! source* value)
 
+        // Output
+        NE_NATIVE("pr!", N_PrBang)              // (pr! ...)
+        NE_NATIVE("prn!", N_PrnBang)            // (prn! ...)
+        NE_NATIVE("repl-pr!", N_ReplPrBang)     // (repl-pr! ...)
+        NE_NATIVE("repl-prn!", N_ReplPrnBang)   // (repl-prn! ...)
+
         // Sequences
         NE_NATIVE("length", N_Length)           // (length seq)
 
@@ -6347,6 +6400,7 @@ NeBool RegisterCoreNatives(Nerd N)
 
         // Conversions
         NE_NATIVE("str", N_Str)                 // (str v1 v2 ...)
+        NE_NATIVE("repl-str", N_ReplStr)        // (repl-str v1 v2 ...)
         NE_NATIVE("int", N_Int)                 // (int n)
         NE_NATIVE("float", N_Float)             // (float n)
 
