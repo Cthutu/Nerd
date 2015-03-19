@@ -254,9 +254,7 @@ NeType;
 #define NE_COLON_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_COLON)
 
 // Values of guaranteed bit size - checked by NeOpen()
-typedef int8_t NeInt8;
 typedef int16_t NeInt16;
-typedef int32_t NeInt32;
 typedef uint8_t NeUInt8;
 typedef uint16_t NeUInt16;
 typedef uint32_t NeUInt32;
