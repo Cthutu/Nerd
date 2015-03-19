@@ -61,7 +61,11 @@ static NeBool RunFile(Nerd N, const char* fileName)
 
         success = NeRun(N, fileName, code, length + 1, &result);
         resultString = NeToString(N, result, success ? NE_CONVERT_MODE_REPL : NE_CONVERT_MODE_NORMAL);
-        NeOut(N, success ? "==> %s\n" : "ERROR: %s\n", resultString);
+        if (!success)
+        {
+            NeOut(N, "ERROR: Error while running %s.\n", fileName);
+            NeOut(N, "ERROR: %s\n", resultString);
+        }
         free(code);
         if (!success) return NE_NO;
     }
@@ -344,6 +348,7 @@ int main(int argc, const char** argv)
 {
     Nerd N;
     NeBool interactive = NE_NO;
+    NeBool cont = NE_YES;
 
 #if NE_BREAK_ALLOC > 0 && defined(_WIN32)
     _CrtSetBreakAlloc(NE_BREAK_ALLOC);
@@ -351,68 +356,78 @@ int main(int argc, const char** argv)
 
     std::signal(SIGINT, &SigHandler);
 
-    // Initialise the session
-    N = CreateSession(argc, argv, &interactive);
-    if (argc == 1) interactive = NE_YES;
-
-    // The main loop
-    if (N)
+    while (cont)
     {
-#if NE_TEST
-        TestMain();
-#endif
+        cont = NE_NO;
 
-        if (interactive)
+        // Initialise the session
+        N = CreateSession(argc, argv, &interactive);
+        if (argc == 1) interactive = NE_YES;
+
+        // The main loop
+        if (N)
         {
-            fprintf(stdout, "Nerd Shell (V" NE_VERSION_STRING ")\n");
-            fprintf(stdout, NE_COPYRIGHT_STRING "\n\n");
-#if _WIN32
-            fprintf(stdout, "Type CTRL-C or enter ,q to quit.\n\n");
-#else
-            fprintf(stdout, "Type CTRL-D or enter ,q to quit.\n\n");
+#if NE_TEST
+            TestMain();
 #endif
 
-            for (;;)
+            if (interactive)
             {
-                char* input = 0;
-                size_t size = 0;
-                char* nspace = 0;
-                ssize_t result = 0;
+                fprintf(stdout, "Nerd Shell (V" NE_VERSION_STRING ")\n");
+                fprintf(stdout, NE_COPYRIGHT_STRING "\n\n");
+#if _WIN32
+                fprintf(stdout, "Type CTRL-C or enter ,q to quit.\n\n");
+#else
+                fprintf(stdout, "Type CTRL-D or enter ,q to quit.\n\n");
+#endif
 
-                fprintf(stdout, "%s> ", nspace ? nspace : "/");
-
-                result = getline(&input, &size, stdin);
-                if ((-1 != result) && (*input == ','))
+                for (;;)
                 {
-                    switch (input[1])
+                    char* input = 0;
+                    size_t size = 0;
+                    char* nspace = 0;
+                    ssize_t result = 0;
+
+                    fprintf(stdout, "%s> ", nspace ? nspace : "/");
+
+                    result = getline(&input, &size, stdin);
+                    if ((-1 != result) && (*input == ','))
                     {
-                    case 'q':
-                        result = -1;
+                        switch (input[1])
+                        {
+                        case 'q':
+                            result = -1;
+                            break;
+
+                        case 'r':
+                            result = -1;
+                            cont = NE_YES;
+                            break;
+                        }
+                    }
+                    if (-1 == result)
+                    {
+                        free(input);
                         break;
                     }
-                }
-                if (-1 == result)
-                {
+
+                    if (size)
+                    {
+                        NeValue result = 0;
+                        NeBool success = NeRun(N, "<stdin>", input, size, &result);
+                        NeString resultString = NeToString(N, result, success ? NE_CONVERT_MODE_REPL : NE_CONVERT_MODE_NORMAL);
+
+                        fprintf(success ? stdout : stderr, success ? "==> %s\n" : "ERROR: %s\n", resultString);
+                    }
+
                     free(input);
-                    break;
+
+                    NeGarbageCollect(N);
                 }
-
-                if (size)
-                {
-                    NeValue result = 0;
-                    NeBool success = NeRun(N, "<stdin>", input, size, &result);
-                    NeString resultString = NeToString(N, result, success ? NE_CONVERT_MODE_REPL : NE_CONVERT_MODE_NORMAL);
-
-                    fprintf(success ? stdout : stderr, success ? "==> %s\n" : "ERROR: %s\n", resultString);
-                }
-
-                free(input);
-
-                NeGarbageCollect(N);
             }
-        }
 
-        NeClose(N);
+            NeClose(N);
+        }
     }
 
     fprintf(stdout, "\nEND\n");
