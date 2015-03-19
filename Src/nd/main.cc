@@ -403,6 +403,20 @@ int main(int argc, const char** argv)
                             result = -1;
                             cont = NE_YES;
                             break;
+
+                        case 'l':
+                            {
+                                NeUInt i;
+                                for (i = 0; input[i] != 0; ++i)
+                                {
+                                    if (input[i] == '\n') input[i] = 0;
+                                }
+                                RunFile(N, input + 3);
+
+                                // We have no input to process later.
+                                size = 0;
+                            }
+                            break;
                         }
                     }
                     if (-1 == result)
