@@ -5810,6 +5810,7 @@ static NeBool N_SetBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef res
         sym = NeGetKey(kv);
         value = NeGetValue(kv);
         NE_EVAL(N, value, env, value);
+        *result = value;
 
         if (!NeAssign(N, sym, value, env, NE_NO)) return NE_NO;
 
