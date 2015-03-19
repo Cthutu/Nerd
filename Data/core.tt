@@ -315,7 +315,21 @@ FileTest.Macros					@test.macro.n												"even"
 # Tables
 #
 
+Table.Lookup.Bad				x:[] (x :a)													nil
 Table.Lookup.1					x:[a:42] (x 'a)												42
 Table.Lookup.2					x:[a:42 b:36] (x 'b)										36
 Table.Lookup.Keyword			x:[a:42 b:36] (x :b)										36
 Table.Lookup.SubTable			x:[a:42 b:[c:56 d:72]] (x :b :d)							72
+Table.Assign					x:[a:42 b:36] (x :a): 23 (x :a)								23
+Table.Assign.SubTable			x:[a:42 b:[c:56 d:72]] (x :b :d): 100 (x :b :d)				100
+Table.Assign.New				x:[a:42] (x :b): 36 (x :b)									36
+Table.Assign.SubTable.New		x:[a:42 b:[]] (x :b :test): 100 (x :b :test)				100
+
+#
+# Set!
+#
+
+Set!.Simple						(set! x:42) x												42
+Set!.AlreadyDefined				x:23 (set! x:42) x											42
+Set!.Table						x:[a:42] (set! (x :a):100) x								[a: 100]
+Set!.Multiple					x:1 y:2 (set! x:5 y:6) (+ x y)								11

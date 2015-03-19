@@ -4954,43 +4954,94 @@ NeBool NeRead(Nerd N, const char* source, const char* str, NeInt size, NE_OUT Ne
 static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OUT NeValueRef result);
 static NeBool EvaluateList(Nerd N, NeValue codeList, NeTableRef environment, NE_OUT NeValueRef result);
 
-static NeBool Assign(Nerd N, NeValue symbol, NeValue value, NeTableRef environment, NeBool functional)
+static NeBool Assign(Nerd N, NeValue source, NeValue value, NeTableRef environment, NeBool functional)
 {
     NeValueRef slot = 0;
 
-    // Check that the key is a symbol
-    if (!NE_IS_SYMBOL(symbol)) return NeError(N, "Attempted assignment to a non-symbol.");
-
-    // Handle the assignment
-    slot = GetTableSlot(environment, symbol, !functional);
-    if (functional && slot)
+    switch (NE_TYPEOF(source))
     {
-        // Symbol is already defined.  Cannot redefine symbol.
-        return NeError(N, "Symbol '%s' is already defined.", NeGetString(symbol));
-    }
+    case NE_PT_SYMBOL:
+        // Handle the assignment
+        slot = GetTableSlot(environment, source, !functional);
+        if (functional && slot)
+        {
+            // Symbol is already defined.  Cannot redefine symbol.
+            return NeError(N, "Symbol '%s' is already defined.", NeGetString(source));
+        }
 
-    if (!slot)
-    {
-        slot = NewTableSlot(N, environment, symbol);
-        if (!slot) return NeOutOfMemory(N);
-    }
+        if (!slot)
+        {
+            slot = NewTableSlot(N, environment, source);
+            if (!slot) return NeOutOfMemory(N);
+        }
 
 #if NE_DEBUG_TRACE_EVAL
-    {
-        char* varDesc = AllocDescription(N, symbol);
-        char* valDesc = AllocDescription(N, value);
+        {
+            char* varDesc = AllocDescription(N, source);
+            char* valDesc = AllocDescription(N, value);
 
-        NeOut(N, "ASSIGN [");
-        if (environment == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", environment);
-        NeOut(N, "] %s = %s\n", varDesc, valDesc);
+            NeOut(N, "ASSIGN [");
+            if (environment == NE_CAST(G(mGlobalEnv), NeTable)) NeOut(N, "GLOBAL"); else NeOut(N, "%p", environment);
+            NeOut(N, "] %s = %s\n", varDesc, valDesc);
 
-        FreeDescription(N, varDesc);
-        FreeDescription(N, valDesc);
-    }
+            FreeDescription(N, varDesc);
+            FreeDescription(N, valDesc);
+        }
 #endif
-    *slot = value;
+        *slot = value;
 
-    return NE_YES;
+        return NE_YES;
+
+    case NE_PT_CELL:
+        {
+            NeValue obj;
+            NeValue key;
+
+            if (!Evaluate(N, NE_HEAD(source), environment, &obj)) return NE_NO;
+            switch (NE_TYPEOF(obj))
+            {
+            case NE_PT_TABLE:
+                {
+                    NeValueRef slot;
+                    source = NE_TAIL(source);
+                    while (source)
+                    {
+                        if (!NE_IS_TABLE(obj))
+                        {
+                            return NeError(N, "Attempt to assign to an invalid table index.");
+                        }
+                        if (!Evaluate(N, NE_HEAD(source), environment, &key)) return NE_NO;
+                        if (!NE_IS_SYMBOL(key))
+                        {
+                            if (NE_IS_KEYWORD(key))
+                            {
+                                key = NE_BOX(key, NE_PT_SYMBOL);
+                            }
+                            else
+                            {
+                                return NeError(N, "Attempt to assign to an invalid table index.");
+                            }
+                        }
+                        slot = NeNewTableSlot(N, obj, key);
+                        if (!slot) return NeOutOfMemory(N);
+                        obj = *slot;
+                        source = NE_TAIL(source);
+                    }
+
+                    *slot = value;
+                    return NE_YES;
+                }
+
+            default:
+                return NeError(N, "Attempted assignment to an invalid source.");
+            } // type of obj
+        }
+        break;
+
+    default:
+        return NeError(N, "Attempted assignment to an invalid source.");
+    }
+
 }
 
 NeBool NeAssign(Nerd N, NeValue source, NeValue value, NeValue env, NeBool functional)
