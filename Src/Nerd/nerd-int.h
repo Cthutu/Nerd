@@ -575,7 +575,10 @@ NeNativeInfo, *NeNativeInfoRef;
 // Register a list of native functions.  The array of NeNativeInfos should be terminated with
 // a { 0, 0 }.  You can use the NE_END_NATIVES macro for this.
 //
-NeBool NeRegisterNatives(Nerd N, NeNativeInfoRef nativeList, NeValue environment);
+// If you provide a non-null 'featureName', the global variable *features* will have a symbol added
+// to the head of the list.  This allows programs to query the configuration of the VM.
+//
+NeBool NeRegisterNatives(Nerd N, NeNativeInfoRef nativeList, NeValue environment, const char* featureName);
 
 //----------------------------------------------------------------------------------------------------
 // Native writing utilities

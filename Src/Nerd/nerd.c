@@ -501,6 +501,30 @@ static NeBool AppendItem(Nerd N, NE_IN_OUT NeValue* rootRef, NE_IN_OUT NeValue* 
     return AppendCell(N, rootRef, lastCellRef, newCell);
 }
 
+// Prepend a new cell to the beginning of a list.
+//
+static void PrependCell(Nerd N, NE_IN_OUT NeValue* rootRef, NeValue cell)
+{
+    NE_TAIL(cell) = *rootRef;
+    *rootRef = cell;
+}
+
+// Prepend a new value to the beginning of a list by creating a new cons-cell and calling PrependCell().
+//
+static NeBool PrependItem(Nerd N, NE_IN_OUT NeValue* rootRef, NeValue item)
+{
+    NeValue newCell = 0;
+
+    NE_ASSERT(N);
+    NE_ASSERT(rootRef);
+
+    newCell = NeCreateCons(N, item, 0);
+    if (!newCell) return NeOutOfMemory(N);
+    PrependCell(N, rootRef, newCell);
+
+    return NE_YES;
+}
+
 NeBool NeCheckArgType(Nerd N, NeValue arg, NeInt index, NeType expectedArgType)
 {
     NeType argType = NeGetType(arg);
@@ -4954,6 +4978,17 @@ NeBool NeRead(Nerd N, const char* source, const char* str, NeInt size, NE_OUT Ne
 static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OUT NeValueRef result);
 static NeBool EvaluateList(Nerd N, NeValue codeList, NeTableRef environment, NE_OUT NeValueRef result);
 
+static NeBool NeIsDefined(Nerd N, NeValue env, const char* symName)
+{
+    NeTableRef envTable;
+    NeValue sym;
+
+    sym = NeCreateSymbol(N, symName, -1);
+    if (!sym) return NeOutOfMemory(N);
+    envTable = NE_CAST(env, NeTable);
+    return GetTableSlot(envTable, sym, NE_YES) != 0 ? NE_YES : NE_NO;
+}
+
 static NeBool Assign(Nerd N, NeValue source, NeValue value, NeTableRef environment, NeBool functional)
 {
     NeValueRef slot = 0;
@@ -5041,13 +5076,31 @@ static NeBool Assign(Nerd N, NeValue source, NeValue value, NeTableRef environme
     default:
         return NeError(N, "Attempted assignment to an invalid source.");
     }
-
 }
 
 NeBool NeAssign(Nerd N, NeValue source, NeValue value, NeValue env, NeBool functional)
 {
     NeTableRef envTable = NE_CAST(env, NeTable);
     return Assign(N, source, value, envTable, functional);
+}
+
+NeBool NeSetSymbolValue(Nerd N, NeValue env, const char* varName, NeValue value)
+{
+    NeValue sym;
+    env = env ? env : G(mGlobalEnv);
+    sym = NeCreateSymbol(N, varName, -1);
+    if (!sym) return NE_NO;
+    return NeAssign(N, sym, value, env, NE_NO);
+}
+
+NeValue NeGetSymbolValue(Nerd N, NeValue env, const char* varName)
+{
+    NeValue sym = NeCreateSymbol(N, varName, -1);
+    NeValueRef slot;
+    if (!sym) return 0;
+    env = env ? env : G(mGlobalEnv);
+    slot = NeGetTableSlot(N, env, sym, NE_YES);
+    return slot ? *slot : 0;
 }
 
 NeValue GetFunctionEnv(NeValue func, NeValue env)
@@ -5564,11 +5617,31 @@ NeBool NeRegisterNative(Nerd N, const char* nativeName, NeValue environment, NeN
     return Assign(N, sym, NE_MAKE_EXTENDED_VALUE(NE_XT_NATIVE, index), env, NE_YES);
 }
 
-NeBool NeRegisterNatives(Nerd N, NeNativeInfoRef nativeList, NeValue environment)
+NeBool NeRegisterNatives(Nerd N, NeNativeInfoRef nativeList, NeValue environment, const char* featureName)
 {
     for (; nativeList->mName != 0; ++nativeList)
     {
         if (!NeRegisterNative(N, nativeList->mName, environment, nativeList->mFunc)) return NE_NO;
+    }
+
+    if (featureName)
+    {
+        NeValue featuresSym = NeCreateSymbol(N, "*features*", 10);
+        NeValue features;
+        NeValueRef slot;
+        
+        if (!featuresSym) return NeOutOfMemory(N);
+
+        // Get or create a table slot
+        slot = NeNewTableSlot(N, G(mGlobalEnv), featuresSym);
+        if (!slot) return NE_NO;
+        features = *slot;
+
+        // Create a new symbol and add it to the beginning of the features list
+        featuresSym = NeCreateSymbol(N, featureName, -1);
+        if (!featuresSym) return NE_NO;
+        if (!PrependItem(N, &features, featuresSym)) return NE_NO;
+        *slot = features;
     }
 
     return NE_YES;
@@ -6496,7 +6569,7 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_END_NATIVES
     };
 
-    return NeRegisterNatives(N, info, 0);
+    return NeRegisterNatives(N, info, 0, "core");
 }
 
 //----------------------------------------------------------------------------------------------------

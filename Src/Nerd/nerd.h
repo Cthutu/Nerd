@@ -149,6 +149,20 @@ void NeClose(Nerd N);
 void NeGarbageCollect(Nerd N);
 
 //----------------------------------------------------------------------------------------------------
+// Variables & environments
+//----------------------------------------------------------------------------------------------------
+
+// Retrieve a value from an environment.  Use 0 for the global environment of the VM.
+NeValue NeGetSymbolValue(Nerd N, NeValue env, const char* varName);
+
+// Associate a value to a symbol name in a particular environment.  Use 0 for the global environment
+// of the VM.  Will return NE_YES if successful or NE_NO if out of memory.
+NeBool NeSetSymbolValue(Nerd N, NeValue env, const char* varName, NeValue value);
+
+// Discover if a symbol is defined in a particular environment.  Use 0 for the global environment.
+NeBool NeIsDefined(Nerd N, NeValue env, const char* symName);
+
+//----------------------------------------------------------------------------------------------------
 // Value conversions
 //----------------------------------------------------------------------------------------------------
 
@@ -184,8 +198,6 @@ NeValue NeCreateCons(Nerd N, NeValue head, NeValue tail);
 // to calculate this programmatically.
 //
 NeValue NeCreateString(Nerd N, const char* str, NeInt size);
-
-
 
 //----------------------------------------------------------------------------------------------------
 // Execution of code
