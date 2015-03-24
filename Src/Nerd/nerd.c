@@ -3202,6 +3202,7 @@ typedef enum _NeToken
     NeToken_Backquote,          // `
     NeToken_Comma,              // ,
     NeToken_Splice,             // ,@
+    NeToken_Dot,                // .
 
     // Keywords
     NeToken_KEYWORDS,
