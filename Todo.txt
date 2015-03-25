@@ -1,0 +1,13 @@
+TODO:
+
+* Core language:
+	* Dot syntax for table access.
+	* Proper arrays.
+	* Objects.
+
+* Features:
+	* 'network' - nanomsg integration.
+	* 'json' - JSON integration.
+	* 'sqlite' - SQLite integration.
+	* 'sdl' - SDL integration.
+
