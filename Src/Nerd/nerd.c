@@ -617,18 +617,6 @@ NeType NeGetType(NeValue v)
         NeType_Character,
     };
 
-    static NeType constantTypes[] =
-    {
-        NeType_Undefined,
-        NeType_Undefined,
-        NeType_Undefined,
-        NeType_Undefined,
-        NeType_Undefined,
-        NeType_Comma,
-        NeType_Splice,
-        NeType_Undefined,
-    };
-
     NeInt type = 0;
     NeType result = NeType_Undefined;
 
@@ -645,7 +633,7 @@ NeType NeGetType(NeValue v)
         if (type == NeType_Undefined)
         {
             type >>= 4;
-            result = (type < sizeof(constantTypes) / sizeof(constantTypes[0])) ? constantTypes[type] : NeType_Undefined;
+            result = type ? NeType_Special : NeType_Undefined;
         }
         else
         {
@@ -675,8 +663,7 @@ NeString NeGetTypeName(NeType t)
         "boolean",
         "native",
         "character",
-        "comma",
-        "splice",
+        "special",
     };
 
     return typeNames[t];
@@ -5982,6 +5969,20 @@ static NeBool N_SetBang(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef res
     return NE_YES;
 }
 
+static NeBool N_TypeOf(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    NeValue arg;
+    NeString type;
+    
+    NE_NEED_EXACTLY_NUM_ARGS(N, args, 1);
+    NE_EVAL(N, NE_1ST(args), env, arg);
+    
+    type = NeGetTypeName(NeGetType(arg));
+    
+    *result = NeCreateKeyword(N, type, -1);
+    return *result ? NE_YES : NE_NO;
+}
+
 //----------------------------------------------------------------------------------------------------
 // Output
 //----------------------------------------------------------------------------------------------------
@@ -6535,6 +6536,7 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("cond", N_Cond)               // (cond exp1: value1...)
         NE_NATIVE("list", N_List)               // (list v1 v2...)
         NE_NATIVE("set!", N_SetBang)            // (set! source* value)
+        NE_NATIVE("typeof", N_TypeOf)           // (typeof <exp>)
 
         // Output
         NE_NATIVE("pr!", N_PrBang)              // (pr! ...)

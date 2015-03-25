@@ -121,6 +121,11 @@ extern "C"
 //      0       undefined   Represents an undefined type.
 //      1       quote       Represents a ' symbol.  This is transformed by the reader so should never evaluate it.
 //      2       lambda      Represents a -> keyword.  This is transformed by the reader to (fn ...).
+//      3       macrosym    Represents a => keyword.  This is transformed by the reader to (macro ...).
+//      4       backquote   Represents a ` keyword.  This is transformed by the reader to (backquote ...).
+//      5       comma       Represents a , keyword.
+//      6       splice      Represents a ,@ keyword.
+//      7       colon       Represents a : symbol.  This is transformed by the reader to a keyvalue.
 //
 // Checklist for adding new value type:
 //
@@ -162,8 +167,7 @@ typedef enum _NeType
     NeType_Character,
 
     // Constants
-    NeType_Comma,
-    NeType_Splice,
+    NeType_Special,
 
     NeType_COUNT
 }

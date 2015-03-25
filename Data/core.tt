@@ -5,6 +5,28 @@ Literal.String					"Hello!"													"Hello!"
 Literal.KeywordInList			'(:test)													(:test)
 
 #
+# Types
+#
+Types.Nil						(typeof nil)												:nil
+Types.List						(typeof '(1 2 3))											:list
+Types.KeyValue					(typeof (quote a: 3))										:key/value
+Types.Function					(typeof () -> nil)											:function
+Types.Macro						(typeof () => nil)											:macro
+Types.Sequence					(typeof '{1 2 3})											:sequence
+Types.Table						(typeof [a: 42])											:table
+Types.Symbol					(typeof 'a)													:symbol
+Types.Keyword					(typeof :a)													:keyword
+Types.Number.Integer			(typeof 42)													:number
+Types.Number.Float				(typeof 3.14)												:number
+Types.Number.Ratio				(typeof 4/5)												:number
+Types.Boolean.Yes				(typeof yes)												:boolean
+Types.Boolean.No				(typeof no)													:boolean
+Types.Native					(typeof typeof)												:native
+Types.Character.Short			(typeof \a)													:character
+Types.Character.Long			(typeof \space)												:character
+Types.Character.Code			(typeof \#x20)												:character
+
+#
 # Assignments
 #
 Assignment.String				x: "Hello World!" x											"Hello World!"
