@@ -7,10 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		C96B201E1AB65E8300F8B7FC /* core.tt in CopyFiles */ = {isa = PBXBuildFile; fileRef = C96B201D1AB65E2200F8B7FC /* core.tt */; };
 		C9A0C20F1A367AE900D989E5 /* nerd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A0C20D1A367AE900D989E5 /* nerd.c */; };
 		C9A0C2131A367AF900D989E5 /* main.cc in Sources */ = {isa = PBXBuildFile; fileRef = C9A0C2111A367AF900D989E5 /* main.cc */; };
 		C9A0C2141A367AF900D989E5 /* test.cc in Sources */ = {isa = PBXBuildFile; fileRef = C9A0C2121A367AF900D989E5 /* test.cc */; };
+		C9E7B42B1AC292E500F31877 /* core.tt in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9E7B4261AC292C300F31877 /* core.tt */; };
+		C9E7B42C1AC292E500F31877 /* system.n in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9E7B4271AC292C300F31877 /* system.n */; };
+		C9E7B42D1AC292E500F31877 /* test.average.n in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9E7B4281AC292C300F31877 /* test.average.n */; };
+		C9E7B42E1AC292E500F31877 /* test.macro.n in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9E7B4291AC292C300F31877 /* test.macro.n */; };
+		C9E7B42F1AC292E500F31877 /* test.string.n in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9E7B42A1AC292C300F31877 /* test.string.n */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -20,20 +24,28 @@
 			dstPath = "";
 			dstSubfolderSpec = 16;
 			files = (
-				C96B201E1AB65E8300F8B7FC /* core.tt in CopyFiles */,
+				C9E7B42B1AC292E500F31877 /* core.tt in CopyFiles */,
+				C9E7B42C1AC292E500F31877 /* system.n in CopyFiles */,
+				C9E7B42D1AC292E500F31877 /* test.average.n in CopyFiles */,
+				C9E7B42E1AC292E500F31877 /* test.macro.n in CopyFiles */,
+				C9E7B42F1AC292E500F31877 /* test.string.n in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		C96B201D1AB65E2200F8B7FC /* core.tt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = core.tt; path = Data/core.tt; sourceTree = SOURCE_ROOT; };
 		C9A0C2021A367A9700D989E5 /* nerd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nerd; sourceTree = BUILT_PRODUCTS_DIR; };
 		C9A0C20C1A367AE900D989E5 /* nerd-int.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "nerd-int.h"; path = "Nerd/nerd-int.h"; sourceTree = "<group>"; };
 		C9A0C20D1A367AE900D989E5 /* nerd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = nerd.c; path = Nerd/nerd.c; sourceTree = "<group>"; };
 		C9A0C20E1A367AE900D989E5 /* nerd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nerd.h; path = Nerd/nerd.h; sourceTree = "<group>"; };
 		C9A0C2111A367AF900D989E5 /* main.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cc; path = nd/main.cc; sourceTree = "<group>"; };
 		C9A0C2121A367AF900D989E5 /* test.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test.cc; path = nd/test.cc; sourceTree = "<group>"; };
+		C9E7B4261AC292C300F31877 /* core.tt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = core.tt; sourceTree = "<group>"; };
+		C9E7B4271AC292C300F31877 /* system.n */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = system.n; sourceTree = "<group>"; };
+		C9E7B4281AC292C300F31877 /* test.average.n */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test.average.n; sourceTree = "<group>"; };
+		C9E7B4291AC292C300F31877 /* test.macro.n */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test.macro.n; sourceTree = "<group>"; };
+		C9E7B42A1AC292C300F31877 /* test.string.n */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test.string.n; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,7 +78,7 @@
 		C9A0C2041A367A9700D989E5 /* nerd */ = {
 			isa = PBXGroup;
 			children = (
-				C96B201D1AB65E2200F8B7FC /* core.tt */,
+				C9E7B4251AC292A000F31877 /* Data */,
 				C9A0C2111A367AF900D989E5 /* main.cc */,
 				C9A0C2121A367AF900D989E5 /* test.cc */,
 				C9A0C20C1A367AE900D989E5 /* nerd-int.h */,
@@ -75,6 +87,19 @@
 			);
 			name = nerd;
 			path = Src;
+			sourceTree = "<group>";
+		};
+		C9E7B4251AC292A000F31877 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				C9E7B4261AC292C300F31877 /* core.tt */,
+				C9E7B4271AC292C300F31877 /* system.n */,
+				C9E7B4281AC292C300F31877 /* test.average.n */,
+				C9E7B4291AC292C300F31877 /* test.macro.n */,
+				C9E7B42A1AC292C300F31877 /* test.string.n */,
+			);
+			name = Data;
+			path = ../Data;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

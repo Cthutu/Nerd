@@ -783,7 +783,7 @@ static void* DefaultMemoryCallback(NeMemoryOpRef memoryOperation)
 
     // realloc and free only use a size_t type for the size of allocation.  It is possible that NeInt can hold
     // a value greater than what a size_t can hold.  This check protects against that.
-    if (op->mNewSize > (NeInt)(size_t)-1)
+    if (op->mNewSize > (NeBits)(size_t)-1)
     {
         return 0;
     }
@@ -4979,7 +4979,7 @@ NeBool NeRead(Nerd N, const char* source, const char* str, NeInt size, NE_OUT Ne
 static NeBool Evaluate(Nerd N, NeValue expression, NeTableRef environment, NE_OUT NeValueRef result);
 static NeBool EvaluateList(Nerd N, NeValue codeList, NeTableRef environment, NE_OUT NeValueRef result);
 
-static NeBool NeIsDefined(Nerd N, NeValue env, const char* symName)
+NeBool NeIsDefined(Nerd N, NeValue env, const char* symName)
 {
     NeTableRef envTable;
     NeValue sym;
@@ -5038,8 +5038,12 @@ static NeBool Assign(Nerd N, NeValue source, NeValue value, NeTableRef environme
             {
             case NE_PT_TABLE:
                 {
-                    NeValueRef slot;
+                    NeValueRef slot = 0;
                     source = NE_TAIL(source);
+                    if (0 == source)
+                    {
+                        return NeError(N, "No table indicies given for table look-up.");
+                    }
                     while (source)
                     {
                         if (!NE_IS_TABLE(obj))
