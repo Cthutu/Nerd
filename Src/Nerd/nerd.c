@@ -5207,6 +5207,12 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
     case NE_PT_CELL:
         {
             // List subscription
+            if (0 == func)
+            {
+                *result = 0;
+                return NE_YES;
+            }
+
             int subIndex = 1;
             while (args)
             {
@@ -6492,7 +6498,7 @@ static NeBool N_Apply(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef resul
     return NeApply(N, func, params, env, result);
 }
 
-static NeBool N_Reduce(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
+static NeBool N_Fold(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
 {
     NeValue list, func;
     NeValue params = NeCreateList(N, 2);
@@ -6506,7 +6512,7 @@ static NeBool N_Reduce(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef resu
     NE_CHECK_ARG_TYPE(N, list, 2, NeType_List);
     NE_EVAL(N, NE_3RD(args), env, func);
 
-    for (elem = NE_HEAD(list); list; list = NE_TAIL(list))
+    for (; list; list = NE_TAIL(list))
     {
         elem = NE_HEAD(list);
         NE_1ST(params) = r;
@@ -6570,7 +6576,7 @@ NeBool RegisterCoreNatives(Nerd N)
 
         // High-level functions
         NE_NATIVE("apply", N_Apply)             // (apply list func)
-        NE_NATIVE("reduce", N_Reduce)           // (reduce start list func)
+        NE_NATIVE("fold", N_Fold)               // (reduce start list func)
 
         // The end!
         NE_END_NATIVES

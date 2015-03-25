@@ -296,6 +296,15 @@ BI.Length.Keyword				(length :test)												4
 BI.Length.Symbol				(length 'test-sym)											8
 
 #
+# High level functions
+#
+
+HL.Fold.Simple					(fold 0 '(1 2 4) +)											7
+HL.Fold.Nil						(fold 0 nil +)												0
+HL.Fold.NilFunction				(fold 0 '(1 2 4) nil)										nil
+HL.Fold.InvalidParams			(fold 0 '(1 2 4) (x) -> x)									FAIL:Too many arguments given to function.
+
+#
 # Backquote
 #
 Backquote.Simple				`(a b c)													(a b c)
