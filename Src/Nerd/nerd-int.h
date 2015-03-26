@@ -205,6 +205,7 @@ NeType;
 #define NE_C_COMMA          5
 #define NE_C_SPLICE         6
 #define NE_C_COLON          7
+#define NE_C_DOT            8
 
 // Type checking macros
 #define NE_IS_PRIMARY_TYPE(v, tt)		(NE_TYPEOF(v) == (tt))
@@ -235,8 +236,10 @@ NeType;
 #define NE_IS_COMMA(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_COMMA))
 #define NE_IS_SPLICE(v)                 (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_SPLICE))
 #define NE_IS_COLON(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_COLON))
+#define NE_IS_DOT(v)                    (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_DOT))
 #define NE_IS_READER_UNARY_OP(v)        (NE_IS_QUOTE(v) || NE_IS_BACKQUOTE(v) || NE_IS_COMMA(v) || NE_IS_SPLICE(v))
-#define NE_IS_READER_BINARY_OP(v)       (NE_IS_LAMBDA(v) || NE_IS_MACROSYM(v) || NE_IS_COLON(v))
+#define NE_IS_READER_LBINARY_OP(v)      (NE_IS_DOT(v))
+#define NE_IS_READER_RBINARY_OP(v)      (NE_IS_LAMBDA(v) || NE_IS_MACROSYM(v) || NE_IS_COLON(v))
 #define NE_IS_BOOLEAN(v)                NE_IS_EXTENDED_TYPE((v), NE_XT_BOOLEAN)
 #define NE_IS_NATIVE(v)                 NE_IS_EXTENDED_TYPE((v), NE_XT_NATIVE)
 #define NE_IS_CHARACTER(v)              NE_IS_EXTENDED_TYPE((v), NE_XT_CHARACTER)
@@ -256,6 +259,7 @@ NeType;
 #define NE_COMMA_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_COMMA)
 #define NE_SPLICE_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_SPLICE)
 #define NE_COLON_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_COLON)
+#define NE_DOT_VALUE                    NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_DOT)
 
 // Values of guaranteed bit size - checked by NeOpen()
 typedef int16_t NeInt16;

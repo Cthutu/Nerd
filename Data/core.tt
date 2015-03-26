@@ -355,6 +355,9 @@ Table.Assign					x:[a:42 b:36] (x :a): 23 (x :a)								23
 Table.Assign.SubTable			x:[a:42 b:[c:56 d:72]] (x :b :d): 100 (x :b :d)				100
 Table.Assign.New				x:[a:42] (x :b): 36 (x :b)									36
 Table.Assign.SubTable.New		x:[a:42 b:[]] (x :b :test): 100 (x :b :test)				100
+Table.Dot.Lookup.Simple			x:[a:42 b:36] x.a											42
+Table.Dot.Function				x:[foo:()->"hello"] (x.foo)									"hello"
+Table.Dot.Lookup.Deep			x:[a:42 b:[c:66 d:95]] x.b.c								66
 
 #
 # Set!

@@ -4007,6 +4007,7 @@ static NeToken NextToken(NeLexRef L)
     else if ('}' == c)      NE_LEX_WS_RETURN(NeToken_CloseSeq);
     else if ('\'' == c)     NE_LEX_RETURN(NeToken_Quote);
     else if ('`' == c)      NE_LEX_WS_RETURN(NeToken_Backquote);
+    else if ('.' == c)      NE_LEX_WS_RETURN(NeToken_Dot);
     else if (',' == c)
     {
         c = NextChar(L);
@@ -4541,6 +4542,10 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NeValue env, N
         *result = NE_COLON_VALUE;
         break;
 
+    case NeToken_Dot:
+        *result = NE_DOT_VALUE;
+        break;
+
     case NeToken_Error:
         // Don't do anything, the error is handled by NextToken().
         return NE_NO;
@@ -4686,7 +4691,7 @@ static NeBool TransformElement(Nerd N, NeValue input, NE_OUT NeValueRef result)
         input = NE_BOX(input, NE_PT_CELL);
         success = Transform(N, result);
     }
-    else if (NE_IS_READER_UNARY_OP(input) || NE_IS_READER_BINARY_OP(input))
+    else if (NE_IS_READER_UNARY_OP(input) || NE_IS_READER_LBINARY_OP(input))
     {
         success = NeError(N, "Read error at '%s'", NeToString(N, input, NE_CONVERT_MODE_REPL));
     }
@@ -4807,6 +4812,28 @@ static NeBool TransformBinary(Nerd N, NeValue op, NeValue param1, NeValue param2
             success = NeOutOfMemory(N);
         }
     }
+    else if (NE_IS_DOT(op))
+    {
+        NeValue exp = NeCreateList(N, 2);
+        if (exp)
+        {
+            if (!NE_IS_SYMBOL(param2))
+            {
+                success = NeError(N, "Only symbols may be used as indexers in dot syntax.");
+            }
+            else
+            {
+                NE_1ST(exp) = param1;
+                NE_2ND(exp) = NE_BOX(param2, NE_PT_KEYWORD);
+
+                *result = exp;
+            }
+        }
+        else
+        {
+            success = NeOutOfMemory(N);
+        }
+    }
 
     return success;
 }
@@ -4821,8 +4848,10 @@ static NeBool TransformBinaries(Nerd N, NeValue scan)
     while (scan != 0)
     {
         NeValue elem = NE_HEAD(scan);
-        if (NE_IS_READER_BINARY_OP(elem))
+        if (NE_IS_READER_RBINARY_OP(elem) || NE_IS_READER_LBINARY_OP(elem))
         {
+            // Right-associated binary operators
+
             NeValue p1Cell, p2Cell, cont, p1, p2;
 
             if (!TransformBinaries(N, NE_TAIL(scan))) return NE_NO;
@@ -4896,7 +4925,7 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
             if (!TransformUnary(N, elem, op1, &NE_HEAD(scan))) return NE_NO;
             NE_TAIL(scan) = cont;
         }
-        else if (NE_IS_READER_BINARY_OP(elem))
+        else if (NE_IS_READER_RBINARY_OP(elem))
         {
             // For binary operations we just switch the elements around for later processing.
             NeValue op2Cell = 0;
@@ -4916,6 +4945,40 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
             if (!earliestBinary)
             {
                 earliestBinary = last;
+            }
+        }
+        else if (NE_IS_READER_LBINARY_OP(elem))
+        {
+            // Left-associated binary operators are converted into S-expressions.
+            // So a.b.c -> ((a b) c)
+            NeValue op2Cell = 0;
+            NeValue exp;
+
+            if (!last)
+            {
+                return NeError(N, "Missing operand before the %s.", NeToString(N, elem, NE_CONVERT_MODE_REPL));
+            }
+            op2Cell = NE_TAIL(scan);
+            if (!op2Cell)
+            {
+                return NeError(N, "Missing operand after the %s.", NeToString(N, elem, NE_CONVERT_MODE_REPL));
+            }
+            if (NE_IS_DOT(elem))
+            {
+                if (!NE_IS_SYMBOL(NE_HEAD(op2Cell)))
+                {
+                    return NeError(N, "Can only index with a symbol with dot syntax.");
+                }
+                exp = NeCreateList(N, 2);
+                NE_1ST(exp) = NE_HEAD(last);
+                NE_2ND(exp) = NE_BOX(NE_HEAD(op2Cell), NE_PT_KEYWORD);
+                NE_HEAD(last) = exp;
+                NE_TAIL(last) = NE_TAIL(op2Cell);
+                scan = last;
+            }
+            else
+            {
+                NE_ASSERT(0);
             }
         }
         else
