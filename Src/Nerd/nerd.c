@@ -4632,6 +4632,9 @@ static NeBool ReadExpressions(Nerd N, NeLexRef lex, NeToken terminatingToken,
                         }
 
                         elem = NeGetValue(elem);
+
+                        // Evaluate the expression
+                        NE_EVAL(N, elem, env, elem);
                     }
                     else
                     {
