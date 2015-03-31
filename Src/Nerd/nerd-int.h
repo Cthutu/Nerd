@@ -41,7 +41,7 @@ extern "C"
 #define NE_EXTENDED_TYPEOF(v) ((v) & 0xf0)
 
 // Type creation macros
-#define NE_MAKE_EXTENDED_VALUE(xt, value)		(0xfull | (xt) | ((value) << 8))
+#define NE_MAKE_EXTENDED_VALUE(xt, value)       (0xfull | (xt) | ((value) << 8))
 
 // Obtaining values from the extended types
 #define NE_EXTENDED_VALUE(v) ((v) >> 8)
@@ -57,12 +57,12 @@ extern "C"
 //
 // The description of the 4 lower bits are as follows:
 //
-//  BITS    VALUE   TYPE            TYPE	DESCRIPTION
+//  BITS    VALUE   TYPE            TYPE    DESCRIPTION
 //
 //  --- Cell-hierarchy based values ------------------------------------------------
-//  0000    0       Cell			L		Points to a NeCell structure.
-//  0001    1       Key/Value		L		Points to a NeCell structure.
-//  0010    2       Function		N		Is of form ((Block args) body ...)
+//  0000    0       Cell            L       Points to a NeCell structure.
+//  0001    1       Key/Value       L       Points to a NeCell structure.
+//  0010    2       Function        N       Is of form ((Block args) body ...)
 //  0011    3       Macro           N       Same as Function
 //  0100    4       Sequence        L       Points to a NeCell structure.
 //  0101    5       ?
@@ -70,13 +70,13 @@ extern "C"
 //  0111    7       ?
 //
 //  --- Structure address based values ---------------------------------------------
-//  1000    8       Table			L		Points to a NeTable structure.
-//  1001    9       Symbol			L		Points to a NeStringInfo structure.
-//  1010    A       String			L		Points to a NeStringInfo structure.
+//  1000    8       Table           L       Points to a NeTable structure.
+//  1001    9       Symbol          L       Points to a NeStringInfo structure.
+//  1010    A       String          L       Points to a NeStringInfo structure.
 //  1011    B       Keyword         L       Points to a NeStringInfo structure.
 //  1100    C       Block           N       Points to a NeBlock structure.
 //  1101    D       ?
-//  1110    E       Number			L		Points to a NeNumber structure.
+//  1110    E       Number          L       Points to a NeNumber structure.
 //
 //  --- Extended values ------------------------------------------------------------
 //  1111    F       Extended        Bits 4-7 determine type, and the other 56 bits 
@@ -97,23 +97,23 @@ extern "C"
 // For extended types, we use bits 4-7 to determine the type and the other 56 bits
 // are specific to the type:
 //
-//	BITS	VALUE	TYPE			    TYPE	BITS 8-63			DESCRIPTION
-//	0000	0f		Constant types	    N		Index of type	    Represents a value that is constant
-//	0001	1f		Short int		    L		56-bit int			Represents a small integer value
-//	0010	2f		Short float		    L		56-bit float		Represents a small 56-bit float
-//	0011	3f		Short ratio		    L		28-bit values		Represents a small ratio
-//	0100	4f		Boolean             L       0=no, 1=yes         Represents a boolean value
-//	0101	5f		Native function     N		Index of func		Represents a C function that can be called from Titan code
-//	0110	6f		Character           L       8-bit character     Represents a single ASCII character
-//	0111	7f		?
-//	1000	8f		?
-//	1001	9f		?
-//	1010	af		?
-//	1011	bf		?
-//	1100	cf		?
-//	1101	df		?
-//	1110	ef		?
-//	1111    ff		?
+//  BITS    VALUE   TYPE                TYPE    BITS 8-63           DESCRIPTION
+//  0000    0f      Constant types      N       Index of type       Represents a value that is constant
+//  0001    1f      Short int           L       56-bit int          Represents a small integer value
+//  0010    2f      Short float         L       56-bit float        Represents a small 56-bit float
+//  0011    3f      Short ratio         L       28-bit values       Represents a small ratio
+//  0100    4f      Boolean             L       0=no, 1=yes         Represents a boolean value
+//  0101    5f      Native function     N       Index of func       Represents a C function that can be called from Titan code
+//  0110    6f      Character           L       8-bit character     Represents a single ASCII character
+//  0111    7f      ?
+//  1000    8f      ?
+//  1001    9f      ?
+//  1010    af      ?
+//  1011    bf      ?
+//  1100    cf      ?
+//  1101    df      ?
+//  1110    ef      ?
+//  1111    ff      ?
 //
 // The constant types supported for NE_XT_CONSTANT are:
 //
@@ -129,18 +129,18 @@ extern "C"
 //
 // Checklist for adding new value type:
 //
-//		1.	Add NE_PT_xxx or NE_XT_xxx define below.
-//		2.	Add NE_IS_xxx macro.
-//		3.	Add support for type in NeEqual().
-//		4.	Add it to tables above.
-//		5.	Implement marking in MarkValue().
+//      1.  Add NE_PT_xxx or NE_XT_xxx define below.
+//      2.  Add NE_IS_xxx macro.
+//      3.  Add support for type in NeEqual().
+//      4.  Add it to tables above.
+//      5.  Implement marking in MarkValue().
 //      6.  Add support in BufferAddValue().
 //      7.  Add support for ConvertToString().
 //
 // The type codes describe the categories of the value types:
 //
-//		L = Literal			Value can be represented by Nerd code.
-//		N = Non-literal		Value cannot be represented by Nerd code, but a variable can hold a value.
+//      L = Literal         Value can be represented by Nerd code.
+//      N = Non-literal     Value cannot be represented by Nerd code, but a variable can hold a value.
 //
 
 // Types
@@ -174,24 +174,24 @@ typedef enum _NeType
 NeType;
 
 // Primary types:
-#define NE_PT_CELL			0
+#define NE_PT_CELL          0
 #define NE_PT_KEYVALUE      1
-#define NE_PT_FUNCTION		2
+#define NE_PT_FUNCTION      2
 #define NE_PT_MACRO         3
 #define NE_PT_SEQUENCE      4
-#define NE_PT_TABLE			8
+#define NE_PT_TABLE         8
 #define NE_PT_SYMBOL        9
-#define NE_PT_STRING		10
+#define NE_PT_STRING        10
 #define NE_PT_KEYWORD       11
 #define NE_PT_BLOCK         12
-#define NE_PT_NUMBER		14
-#define NE_PT_EXTENDED		15
+#define NE_PT_NUMBER        14
+#define NE_PT_EXTENDED      15
 
 // Extended types:
-#define NE_XT_CONSTANT		(0 << 4)
-#define NE_XT_SHORTINT		(1 << 4)
-#define NE_XT_SHORTFLOAT	(2 << 4)
-#define NE_XT_SHORTRATIO	(3 << 4)
+#define NE_XT_CONSTANT      (0 << 4)
+#define NE_XT_SHORTINT      (1 << 4)
+#define NE_XT_SHORTFLOAT    (2 << 4)
+#define NE_XT_SHORTRATIO    (3 << 4)
 #define NE_XT_BOOLEAN       (4 << 4)
 #define NE_XT_NATIVE        (5 << 4)
 #define NE_XT_CHARACTER     (6 << 4)
@@ -208,19 +208,19 @@ NeType;
 #define NE_C_DOT            8
 
 // Type checking macros
-#define NE_IS_PRIMARY_TYPE(v, tt)		(NE_TYPEOF(v) == (tt))
-#define NE_IS_EXTENDED_TYPE(v, xt)		((NE_TYPEOF(v) == NE_PT_EXTENDED) && (NE_EXTENDED_TYPEOF(v) == (xt)))
-#define NE_IS_CELL(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_CELL)
+#define NE_IS_PRIMARY_TYPE(v, tt)       (NE_TYPEOF(v) == (tt))
+#define NE_IS_EXTENDED_TYPE(v, xt)      ((NE_TYPEOF(v) == NE_PT_EXTENDED) && (NE_EXTENDED_TYPEOF(v) == (xt)))
+#define NE_IS_CELL(v)                   NE_IS_PRIMARY_TYPE((v), NE_PT_CELL)
 #define NE_IS_KEYVALUE(v)               NE_IS_PRIMARY_TYPE((v), NE_PT_KEYVALUE)
-#define NE_IS_FUNCTION(v)				NE_IS_PRIMARY_TYPE((v), NE_PT_FUNCTION)
+#define NE_IS_FUNCTION(v)               NE_IS_PRIMARY_TYPE((v), NE_PT_FUNCTION)
 #define NE_IS_MACRO(v)                  NE_IS_PRIMARY_TYPE((v), NE_PT_MACRO)
 #define NE_IS_SEQUENCE(v)               NE_IS_PRIMARY_TYPE((v), NE_PT_SEQUENCE)
-#define NE_IS_TABLE(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_TABLE)
+#define NE_IS_TABLE(v)                  NE_IS_PRIMARY_TYPE((v), NE_PT_TABLE)
 #define NE_IS_SYMBOL(v)                 NE_IS_PRIMARY_TYPE((v), NE_PT_SYMBOL)
-#define NE_IS_STRING(v)					NE_IS_PRIMARY_TYPE((v), NE_PT_STRING)
+#define NE_IS_STRING(v)                 NE_IS_PRIMARY_TYPE((v), NE_PT_STRING)
 #define NE_IS_KEYWORD(v)                NE_IS_PRIMARY_TYPE((v), NE_PT_KEYWORD)
 #define NE_IS_BLOCK(v)                  NE_IS_PRIMARY_TYPE((v), NE_PT_BLOCK)
-#define NE_IS_NUMBER(v)					(NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) || NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTINT) || \
+#define NE_IS_NUMBER(v)                 (NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) || NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTINT) || \
                                          NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTFLOAT) || NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTRATIO))
 #define NE_IS_INTEGER(v)                ((NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) && (NE_CAST((v), NeNumber)->mNumType == NeNumberType_Integer)) || \
                                          (NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTINT)))
@@ -228,7 +228,7 @@ NeType;
                                          (NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTFLOAT)))
 #define NE_IS_RATIO(v)                  ((NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) && (NE_CAST((v), NeNumber)->mNumType == NeNumberType_Ratio)) || \
                                          (NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTRATIO)))
-#define NE_IS_UNDEFINED(v)				(NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_UNDEFINED))
+#define NE_IS_UNDEFINED(v)              (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_UNDEFINED))
 #define NE_IS_QUOTE(v)                  (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_QUOTE))
 #define NE_IS_LAMBDA(v)                 (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_LAMBDA))
 #define NE_IS_MACROSYM(v)               (NE_IS_EXTENDED_TYPE((v), NE_XT_CONSTANT) && (NE_EXTENDED_VALUE((v)) == NE_C_MACROSYM))
@@ -245,13 +245,13 @@ NeType;
 #define NE_IS_CHARACTER(v)              NE_IS_EXTENDED_TYPE((v), NE_XT_CHARACTER)
 #define NE_IS_CELL_HIERARCHY(v)         (NE_TYPEOF(v) < 8)
 
-#define NE_IS_INTERNAL(v)				(((v) & 0x8f) == 0x8f)
+#define NE_IS_INTERNAL(v)               (((v) & 0x8f) == 0x8f)
 
 // Value creation macros
 #define NE_UNDEFINED_VALUE              NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_UNDEFINED)
 #define NE_QUOTE_VALUE                  NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_QUOTE)
 #define NE_LAMBDA_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_LAMBDA)
-#define NE_MACROSYM_VALUE                 NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_MACROSYM)
+#define NE_MACROSYM_VALUE               NE_MAKE_EXTENDED_VALUE(NE_XT_CONSTANT, NE_C_MACROSYM)
 #define NE_BOOLEAN_VALUE(exp)           NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, ((exp) ? (NeInt)1 : (NeInt)0))
 #define NE_YES_VALUE                    NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 1)
 #define NE_NO_VALUE                     NE_MAKE_EXTENDED_VALUE(NE_XT_BOOLEAN, 0)
@@ -275,7 +275,7 @@ typedef uint32_t NeUInt32;
 //
 // Cells are the building blocks for most data and code.
 //
-#define NE_GC_HEADER	NeBits mMarked:1; NeBits mUsed:1; NeBits mType:4;
+#define NE_GC_HEADER    NeBits mMarked:1; NeBits mUsed:1; NeBits mType:4;
 
 typedef struct _NeCell
 {
@@ -305,15 +305,15 @@ NeNumberType;
 typedef struct _NeNumber
 {
     struct {
-        NE_GC_HEADER		// Header wrapped in structure to stop mType being merged into the NeBits
+        NE_GC_HEADER        // Header wrapped in structure to stop mType being merged into the NeBits
     };
-    NeNumberType	mNumType;
+    NeNumberType    mNumType;
     union {
-        NeFloat			mFloat;
-        NeInt			mInteger;
+        NeFloat         mFloat;
+        NeInt           mInteger;
         struct {
-            NeInt			mNumerator;
-            NeInt			mDenominator;
+            NeInt           mNumerator;
+            NeInt           mDenominator;
         };
     };
 }

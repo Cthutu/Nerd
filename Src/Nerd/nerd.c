@@ -248,7 +248,7 @@ typedef struct _NeGlobalSession
     // Pools
     NePool                  mCellsPool;         // Contains all instances of NeCell.
     NePool                  mTablesPool;        // Contains all instances of NeTable.
-    NePool					mNumbersPool;		// Contains all instances of NeNumber.
+    NePool                  mNumbersPool;       // Contains all instances of NeNumber.
     NePool                  mBlocksPool;        // Contains all instances of NeBlock.
 
     // Symbols
@@ -1870,9 +1870,9 @@ static NeUInt32 Hash(const void* buffer, NeInt size, NeUInt32 seed)
 
     switch (size)
     {
-    case 3:		h ^= data[2] << 16;
-    case 2:		h ^= data[1] << 8;
-    case 1:		h ^= data[0];
+    case 3:     h ^= data[2] << 16;
+    case 2:     h ^= data[1] << 8;
+    case 1:     h ^= data[0];
         h *= m;
     }
 
@@ -2499,12 +2499,12 @@ NeString NeGetSymbolName(NeValue symbol)
 
 //----------------------------------------------------------------------------------------------------{NUMBER}
 //----------------------------------------------------------------------------------------------------
-//	N U M B E R S   M A N A G E M E N T
+//  N U M B E R S   M A N A G E M E N T
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
-#define NE_MAX_INT(bits)	((1ll << (bits - 1)) - 1)
-#define NE_MIN_INT(bits)	-(1ll << (bits - 1))
+#define NE_MAX_INT(bits)    ((1ll << (bits - 1)) - 1)
+#define NE_MIN_INT(bits)    -(1ll << (bits - 1))
 
 static NeBool NewNumber(Nerd N, NE_OUT NeNumberRef* number)
 {
@@ -3174,7 +3174,7 @@ typedef enum _NeToken
     NeToken_Symbol,             // e.g. foo
     NeToken_String,             // e.g. "foo"
     NeToken_Keyword,            // e.g. :foo
-    NeToken_Number,				// e.g. 42, 3.14 or -1/5
+    NeToken_Number,             // e.g. 42, 3.14 or -1/5
     NeToken_Character,          // e.g. \a, \space, \x
 
     // Characters
@@ -3225,41 +3225,41 @@ static struct { const char* name; NeChar ch; } gCharmap[] =
 
 // This table represents the validity of a name (symbol or keyword) character.
 //
-//		0 = Cannot be found within a name.
-//		1 = Can be found within a name.
-//		2 = Can be found within a name but not as the initial character.
+//      0 = Cannot be found within a name.
+//      1 = Can be found within a name.
+//      2 = Can be found within a name but not as the initial character.
 //
 static const char gNameChar[128] =
 {
-    //			00	01	02	03	04	05	06	07	08	09	0a	0b	0c	0d	0e	0f	// Characters
-    /* 00 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	// 
-    /* 10 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	// 
-    /* 20 */	0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1,	//  !"#$%&' ()*+,-./
-    /* 30 */	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 1, 1, 1, 1,	// 01234567 89:;<=>?
-    /* 40 */	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	// @ABCDEFG HIJKLMNO
-    /* 50 */	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1,	// PQRSTUVW XYZ[\]^_
-    /* 60 */	0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	// `abcdefg hijklmno
-    /* 70 */	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0,	// pqrstuvw xyz{|}~
+    //          00  01  02  03  04  05  06  07  08  09  0a  0b  0c  0d  0e  0f  // Characters
+    /* 00 */    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 
+    /* 10 */    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 
+    /* 20 */    0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, //  !"#$%&' ()*+,-./
+    /* 30 */    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 1, 1, 1, 1, // 01234567 89:;<=>?
+    /* 40 */    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // @ABCDEFG HIJKLMNO
+    /* 50 */    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, // PQRSTUVW XYZ[\]^_
+    /* 60 */    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // `abcdefg hijklmno
+    /* 70 */    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, // pqrstuvw xyz{|}~
 };
 
 static const unsigned int gKeyWordHashes[] =
 {
-    /* 0 */		0,
-    /* 1 */		NeToken_False,
-    /* 2 */		NeToken_True,
-    /* 3 */		0,
-    /* 4 */		NeToken_Nil | (NeToken_Macro << 8),
-    /* 5 */		NeToken_Yes,
-    /* 6 */		0,
-    /* 7 */		0,
-    /* 8 */		0,
-    /* 9 */		0,
-    /* A */		NeToken_Undefined,
-    /* B */		0,
-    /* C */		NeToken_No,
-    /* D */		0,
-    /* E */		0,
-    /* F */		NeToken_Lambda,
+    /* 0 */     0,
+    /* 1 */     NeToken_False,
+    /* 2 */     NeToken_True,
+    /* 3 */     0,
+    /* 4 */     NeToken_Nil | (NeToken_Macro << 8),
+    /* 5 */     NeToken_Yes,
+    /* 6 */     0,
+    /* 7 */     0,
+    /* 8 */     0,
+    /* 9 */     0,
+    /* A */     NeToken_Undefined,
+    /* B */     0,
+    /* C */     NeToken_No,
+    /* D */     0,
+    /* E */     0,
+    /* F */     NeToken_Lambda,
 };
 
 // The order of this array MUST match the order of the enums after
@@ -3295,9 +3295,9 @@ typedef struct _NeLex
     const char*         mStartToken;    // Points to the first character of the token just read
     const char*         mEndToken;      // Points past the last character of the token just read
     NeUInt32            mHash;          // The hash of the last token
-    NeNumber			mNumber;		// If the token is a number, it is stored here
+    NeNumber            mNumber;        // If the token is a number, it is stored here
     NeChar              mCharacter;     // Parsed character
-    NeBool				mWsFound;		// Set to true if whitespace is found before parsing
+    NeBool              mWsFound;       // Set to true if whitespace is found before parsing
 }
 NeLex, *NeLexRef;
 
@@ -4233,7 +4233,7 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
 
         case NE_XT_BOOLEAN:         return FormatScratch(N, NE_EXTENDED_VALUE(v) ? "yes" : "no");
 
-        case NE_XT_NATIVE:		    return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "<native:%u>" : "", NE_EXTENDED_VALUE(v));
+        case NE_XT_NATIVE:          return FormatScratch(N, (convertMode == NE_CONVERT_MODE_REPL) ? "<native:%u>" : "", NE_EXTENDED_VALUE(v));
 
         case NE_XT_CHARACTER:
             {
@@ -4277,9 +4277,9 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
 
         default:;
             // Flows into outer switch default!
-            //		|
-            //		|
-            //		V
+            //      |
+            //      |
+            //      V
         }
 
     default:
@@ -4331,7 +4331,7 @@ static void FreeDescription(Nerd N, char* str)
 
 //----------------------------------------------------------------------------------------------------{VALUE}
 //----------------------------------------------------------------------------------------------------
-//	V A L U E   C O N V E R S I O N   R O U T I N E S
+//  V A L U E   C O N V E R S I O N   R O U T I N E S
 //----------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------
 
