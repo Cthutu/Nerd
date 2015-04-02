@@ -6607,12 +6607,8 @@ static NeBool N_Map(Nerd N, NeValue args, NeValue env, NeValueRef result)
 
     NE_NEED_NUM_ARGS(N, args, 2);
 
-    fnExp = NE_1ST(args);
-    NE_EVAL(N, fnExp, env, func);
-    args = NE_TAIL(args);
-
     // Count how many lists we have
-    while (args)
+    while (NE_TAIL(args) != 0)
     {
         NeValue arg;
         NE_EVAL(N, NE_HEAD(args), env, arg);
@@ -6627,6 +6623,9 @@ static NeBool N_Map(Nerd N, NeValue args, NeValue env, NeValueRef result)
     }
     fnArgs = NeCreateList(N, numLists);
     if (!fnArgs) return NeOutOfMemory(N);
+
+    fnExp = NE_1ST(args);
+    NE_EVAL(N, fnExp, env, func);
 
     // Loop through the elements in the first list
     while (!endList)
@@ -6734,7 +6733,7 @@ NeBool RegisterCoreNatives(Nerd N)
         // High-level functions
         NE_NATIVE("apply", N_Apply)             // (apply list func)
         NE_NATIVE("fold", N_Fold)               // (reduce start list func)
-        NE_NATIVE("map", N_Map)                 // (map fn args...)
+        NE_NATIVE("map", N_Map)                 // (map args... fn)
 
         // The end!
         NE_END_NATIVES
