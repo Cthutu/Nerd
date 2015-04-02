@@ -305,9 +305,9 @@ HL.Fold.NilFunction				(fold 0 '(1 2 4) nil)										nil
 HL.Fold.InvalidParams			(fold 0 '(1 2 4) (x) -> x)									FAIL:Too many arguments given to function.
 
 HL.Map.Simple					(map (x)->(* 2 x) '(1 2 3))									(2 4 6)
-HL.Map.StaticParams				(map (a b)->(+ a b) 4 '(1 2 3))								(5 6 7)
-HL.Map.MultiLists				(map (a b)->(+ a b) '(1 2 3) '(4 5 6))						(5 7 9)
-HL.Map.Error.NoLists			(map (a b)->(+ a b) 4 5)									FAIL:Attempt to map parameters to a function where none are lists.
+HL.Map.StaticParams				(map + 4 '(1 2 3))											(5 6 7)
+HL.Map.MultiLists				(map + '(1 2 3) '(4 5 6))									(5 7 9)
+HL.Map.Error.NoLists			(map + 4 5)													FAIL:Attempt to map parameters to a function where none are lists.
 
 #
 # Backquote
