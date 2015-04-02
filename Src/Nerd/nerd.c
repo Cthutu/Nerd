@@ -6593,6 +6593,97 @@ static NeBool N_Fold(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result
     return NE_YES;
 }
 
+static NeBool N_Map(Nerd N, NeValue args, NeValue env, NeValueRef result)
+{
+    NeValue func;
+    NeValue fnArgs;
+    NeValue inputs = 0, lastInput = 0;
+    NeValue scan;
+    NeInt numLists = 0;
+    NeValue root = 0, lastCell = 0;
+    NeValue fnExp;
+    NeBool endList = NE_NO;
+    NeBool haveList = NE_NO;
+
+    NE_NEED_NUM_ARGS(N, args, 2);
+
+    fnExp = NE_1ST(args);
+    NE_EVAL(N, fnExp, env, func);
+    args = NE_TAIL(args);
+
+    // Count how many lists we have
+    while (args)
+    {
+        NeValue arg;
+        NE_EVAL(N, NE_HEAD(args), env, arg);
+        if (NE_IS_CELL(arg)) haveList = NE_YES;
+        if (!AppendItem(N, &inputs, &lastInput, arg)) return NE_NO;
+        ++numLists;
+        args = NE_TAIL(args);
+    }
+    if (!haveList)
+    {
+        return NeError(N, "Attempt to map parameters to a function where none are lists.");
+    }
+    fnArgs = NeCreateList(N, numLists);
+    if (!fnArgs) return NeOutOfMemory(N);
+
+    // Loop through the elements in the first list
+    while (!endList)
+    {
+        NeValue src = inputs;       // src = ((elem ...) (elem ...) ...)
+        NeValue dst = fnArgs;       // dst = (nil nil ...)
+        NeValue result;
+
+        // Loop through the lists and fill in the arguments
+        while (dst)
+        {
+            NeValue srcList = NE_HEAD(src);
+            NeValue srcValue = 0;
+            if (NE_IS_CELL(srcList))
+            {
+                // Handle the case when the argument is a list
+                srcValue = NE_HEAD(srcList);
+            }
+            else
+            {
+                // Handle the non-list case
+                srcValue = srcList;
+            }
+            NE_HEAD(dst) = srcValue;
+            src = NE_TAIL(src);
+            dst = NE_TAIL(dst);
+        }
+
+        // Call the function
+        if (!NeApply(N, func, fnArgs, env, &result)) return NE_NO;
+        if (!AppendItem(N, &root, &lastCell, result)) return NE_NO;
+
+        // Advance the lists.  We need to drop the first element in each of the input lists
+        scan = inputs;
+        while (scan)
+        {
+            if (NE_IS_CELL(NE_HEAD(scan)))
+            {
+                NE_HEAD(scan) = NE_TAIL(NE_HEAD(scan));
+                if (endList && (0 != NE_HEAD(scan)))
+                {
+                    return NeError(N, "Mismatched list lengths during mapping.");
+                }
+                if (0 == NE_HEAD(scan))
+                {
+                    // We've reached the end of one of the lists
+                    endList = NE_YES;
+                }
+            }
+            scan = NE_TAIL(scan);
+        }
+    }
+
+    *result = root;
+    return NE_YES;
+}
+
 //----------------------------------------------------------------------------------------------------
 // Standard natives registration
 //----------------------------------------------------------------------------------------------------
@@ -6643,6 +6734,7 @@ NeBool RegisterCoreNatives(Nerd N)
         // High-level functions
         NE_NATIVE("apply", N_Apply)             // (apply list func)
         NE_NATIVE("fold", N_Fold)               // (reduce start list func)
+        NE_NATIVE("map", N_Map)                 // (map fn args...)
 
         // The end!
         NE_END_NATIVES
