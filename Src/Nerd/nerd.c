@@ -161,12 +161,10 @@ typedef struct _NePool
 NePool, *NePoolRef;
 
 //----------------------------------------------------------------------------------------------------
-// NeBuffer
-// A NeBuffer is an expandable buffer that can expand its size.  This is required a lot for building
-// temporary buffers and for generation of byte-code, for example.
+// Buffer header structure
 //----------------------------------------------------------------------------------------------------
 
-typedef struct _NeBuffer
+struct _NeBuffer
 {
     NeInt           mCapacity;      // Size of the allocated memory
     NeInt           mIncrement;     // The amount the buffer should expand by
@@ -175,8 +173,7 @@ typedef struct _NeBuffer
     NeInt           mCommit;        // Data before this has been committed
     Nerd            mSession;       // Session that owns this buffer
     char            mData[0];
-}
-NeBuffer, *NeBufferRef;
+};
 
 //----------------------------------------------------------------------------------------------------
 // NeBlock
@@ -602,7 +599,7 @@ NeType NeGetType(NeValue v)
         NeType_String,
         NeType_Keyword,
         NeType_Block,
-        NeType_Undefined,
+        NeType_Object,
         NeType_Number,
     };
 
@@ -658,6 +655,7 @@ NeString NeGetTypeName(NeType t)
         "string",
         "keyword",
         "block",
+        "object",
         "number",
         "undefined",
         "boolean",
@@ -940,11 +938,9 @@ void NeSetConfigToDefault(NeConfigRef config)
 static void CreatePool(NePoolRef pool, Nerd N, NeInt elemSize, NeInt numElemsPerHeap,
                        NePoolElemDestroyFunc destroyFunc);
 static void DestroyPool(NePoolRef pool);
-static NeBufferRef CreateBuffer(Nerd N, NeInt startSize);
 static void InitTable(Nerd N, NeTableRef table, NeTableRef parent);
 static void DestroyTableElement(Nerd N, void* tableObject);
 static void DestroyBlockElement(Nerd N, void* blockObject);
-static void DestroyBuffer(NeBufferRef buffer);
 static NeBool RegisterCoreNatives(Nerd N);
 
 const char* gNeOpenError = 0;
@@ -1025,11 +1021,11 @@ Nerd NeOpen(NeConfigRef config)
     G(mGlobalEnv) = NeCloneTable(N, G(mCoreEnv));
 
     // Initialise the scratch pad
-    N->mScratch = CreateBuffer(N, NE_DEFAULT_BUFFER_SIZE);
+    N->mScratch = NeCreateBuffer(N, NE_DEFAULT_BUFFER_SIZE);
     if (!N->mScratch) goto error;
 
     // Register core functions
-    G(mNativeFuncBuffer) = CreateBuffer(N, 16);
+    G(mNativeFuncBuffer) = NeCreateBuffer(N, 16);
     if (!G(mNativeFuncBuffer)) goto error;
     RegisterCoreNatives(N);
 
@@ -1069,7 +1065,7 @@ void NeClose(Nerd N)
             }
 
             // Destroy the buffers
-            DestroyBuffer(G->mNativeFuncBuffer);
+            NeDestroyBuffer(G->mNativeFuncBuffer);
         }
 
         // Check for leaks!
@@ -1078,7 +1074,7 @@ void NeClose(Nerd N)
 #endif
 
         // Destroy the scratch buffer (DumpMemoryAllocs ignores this buffer)
-        DestroyBuffer(N->mScratch);
+        NeDestroyBuffer(N->mScratch);
 
         // Free the session structure
         NE_FREE(N, N, sizeof(struct _Nerd), NeMemoryType_Session);
@@ -1164,7 +1160,7 @@ void _NeFree(Nerd N, void* address, NeInt oldSize, NeMemoryType memoryType, cons
 
 // Create a new expandable buffer.
 //
-static NeBufferRef CreateBuffer(Nerd N, NeInt startSize)
+NeBufferRef NeCreateBuffer(Nerd N, NeInt startSize)
 {
     NeInt finalSize = startSize + sizeof(NeBuffer);
     NeBufferRef newBuffer = NE_ALLOC(NeBuffer, N, finalSize, NeMemoryType_Buffer);
@@ -1184,7 +1180,7 @@ static NeBufferRef CreateBuffer(Nerd N, NeInt startSize)
 
 // Destroy the buffer.
 //
-static void DestroyBuffer(NeBufferRef buffer)
+void NeDestroyBuffer(NeBufferRef buffer)
 {
     if (buffer)
     {
@@ -1234,7 +1230,7 @@ static NeInt BufferSpace(NeBufferRef buffer)
 
 // Create a string based on a printf-style format and parameters, and add it to the buffer.
 //
-static NeBool BufferAddFormatArgs(NeBufferRef* buffer, const char* format, va_list args)
+NeBool NeBufferAddFormatArgs(NeBufferRef* buffer, const char* format, va_list args)
 {
     int formatResult = -1;
 
@@ -1266,23 +1262,23 @@ static NeBool BufferAddFormatArgs(NeBufferRef* buffer, const char* format, va_li
     return NE_YES;
 }
 
-// The version of BufferAddFormatArgs that uses variable arguments
+// The version of NeBufferAddFormatArgs that uses variable arguments
 //
-//static NeBool BufferAddFormat(NeBufferRef* buffer, const char* format, ...)
-//{
-//    va_list args;
-//    NeBool result;
-//
-//    va_start(args, format);
-//    result = BufferAddFormatArgs(buffer, format, args);
-//    va_end(args);
-//
-//    return result;
-//}
+NeBool NeBufferAddFormat(NeBufferRef* buffer, const char* format, ...)
+{
+   va_list args;
+   NeBool result;
+
+   va_start(args, format);
+   result = NeBufferAddFormatArgs(buffer, format, args);
+   va_end(args);
+
+   return result;
+}
 
 // Allocate some space on the buffer and return the address.  It will be 16 byte aligned
 //
-static NeBool BufferAlloc(NeBufferRef* buffer, NeInt size, NE_OUT void** address)
+NeBool NeBufferAlloc(NeBufferRef* buffer, NeInt size, NE_OUT void** address)
 {
     NeBool haveSpace = NE_YES;
 
@@ -1299,11 +1295,11 @@ static NeBool BufferAlloc(NeBufferRef* buffer, NeInt size, NE_OUT void** address
 
 // Add a memory block to our buffer
 //
-static void* BufferAdd(NeBufferRef* buffer, const void* memBlock, NeInt size)
+void* NeBufferAdd(NeBufferRef* buffer, const void* memBlock, NeInt size)
 {
     void* address;
 
-    if (!BufferAlloc(buffer, size, &address)) return 0;
+    if (!NeBufferAlloc(buffer, size, &address)) return 0;
     CopyMemory(address, memBlock, size);
 
     return address;
@@ -1311,36 +1307,36 @@ static void* BufferAdd(NeBufferRef* buffer, const void* memBlock, NeInt size)
 
 // Set a block of memory within the buffer at a position from the beginning of the non-committed data.
 //
-//static void BufferSet(NeBufferRef buffer, NeInt position, const void* memBlock, NeInt size)
-//{
-//    NE_ASSERT((buffer->mCommit + position + size) <= buffer->mCursor);
-//    CopyMemory(&buffer->mData[buffer->mCommit + position], memBlock, size);
-//}
+void NeBufferSet(NeBufferRef buffer, NeInt position, const void* memBlock, NeInt size)
+{
+   NE_ASSERT((buffer->mCommit + position + size) <= buffer->mCursor);
+   CopyMemory(&buffer->mData[buffer->mCommit + position], memBlock, size);
+}
 
 // Get a block of memory within a buffer according to position from the beginning of the non-committed data.
-static void* BufferGet(NeBufferRef buffer, NeInt position, NeInt size)
+void* NeBufferGet(NeBufferRef buffer, NeInt position, NeInt size)
 {
     NE_ASSERT((buffer->mCommit + position + size) <= buffer->mCursor);
     return &buffer->mData[buffer->mCommit + position];
 }
 
-//static void BufferShrink(NeBufferRef* buffer)
-//{
-//    NeInt origSize = sizeof(NeBuffer)+(*buffer)->mCapacity;
-//    NeInt finalSize = sizeof(NeBuffer)+(*buffer)->mCursor;
-//    NeBufferRef newBuffer = NE_REALLOC(NeBuffer, (*buffer)->mSession, *buffer, origSize, finalSize, NeMemoryType_Buffer);
-//
-//    // We cannot have any saved data when we shrink
-//    NE_ASSERT((*buffer)->mStackPointer == (*buffer)->mCapacity);
-//
-//    if (newBuffer)
-//    {
-//        *buffer = newBuffer;
-//        (*buffer)->mCapacity = (*buffer)->mCursor;
-//    }
-//}
+void NeBufferShrink(NeBufferRef* buffer)
+{
+   NeInt origSize = sizeof(NeBuffer)+(*buffer)->mCapacity;
+   NeInt finalSize = sizeof(NeBuffer)+(*buffer)->mCursor;
+   NeBufferRef newBuffer = NE_REALLOC(NeBuffer, (*buffer)->mSession, *buffer, origSize, finalSize, NeMemoryType_Buffer);
 
-static NeInt BufferLength(NeBufferRef buffer)
+   // We cannot have any saved data when we shrink
+   NE_ASSERT((*buffer)->mStackPointer == (*buffer)->mCapacity);
+
+   if (newBuffer)
+   {
+       *buffer = newBuffer;
+       (*buffer)->mCapacity = (*buffer)->mCursor;
+   }
+}
+
+NeInt NeBufferLength(NeBufferRef buffer)
 {
     return buffer->mCursor;
 }
@@ -1350,11 +1346,7 @@ static NeInt BufferLength(NeBufferRef buffer)
 //    return buffer->mCursor - buffer->mCommit;
 //}
 
-// This will store the data written to the buffer away for later editing.  It will only save the data
-// written since the last commit.  Use RestoreBuffer() to get it back.  You can nest the calls as long
-// as you match each SaveBuffer with each RestoreBuffer.
-//
-static NeBool SaveBuffer(NeBufferRef* buffer)
+NeBool NeBufferSave(NeBufferRef* buffer)
 {
     NeInt sizeToSave = (*buffer)->mCursor - (*buffer)->mCommit;
 
@@ -1376,9 +1368,7 @@ static NeBool SaveBuffer(NeBufferRef* buffer)
     return NE_YES;
 }
 
-// Restore previously saved contents and overwrite any uncommited data.
-//
-static void RestoreBuffer(NeBufferRef buffer)
+void NeBufferRestore(NeBufferRef buffer)
 {
     NeInt sizeToRestore;
 
@@ -1396,10 +1386,10 @@ static void RestoreBuffer(NeBufferRef buffer)
     buffer->mCursor += sizeToRestore;
 }
 
-//static void CommitBuffer(NeBufferRef buffer)
-//{
-//    buffer->mCommit = buffer->mCursor;
-//}
+void NeBufferCommit(NeBufferRef buffer)
+{
+   buffer->mCommit = buffer->mCursor;
+}
 
 //----------------------------------------------------------------------------------------------------{SCRATCH}
 //----------------------------------------------------------------------------------------------------
@@ -1414,17 +1404,17 @@ static void RestoreBuffer(NeBufferRef buffer)
 
 static void SaveScratch(Nerd N)
 {
-    SaveBuffer(&N->mScratch);
+    NeBufferSave(&N->mScratch);
 }
 
 static void RestoreScratch(Nerd N)
 {
-    RestoreBuffer(N->mScratch);
+    NeBufferRestore(N->mScratch);
 }
 
 static NeBool FormatScratchArgs(Nerd N, const char* format, va_list args)
 {
-    return BufferAddFormatArgs(&N->mScratch, format, args);
+    return NeBufferAddFormatArgs(&N->mScratch, format, args);
 }
 
 static NeBool FormatScratch(Nerd N, const char* format, ...)
@@ -1441,7 +1431,7 @@ static NeBool FormatScratch(Nerd N, const char* format, ...)
 
 static NeBool AddScratchBuffer(Nerd N, const void* buffer, NeInt size)
 {
-    return BufferAdd(&N->mScratch, buffer, size) != 0 ? NE_YES : NE_NO;
+    return NeBufferAdd(&N->mScratch, buffer, size) != 0 ? NE_YES : NE_NO;
 }
 
 static NeBool AddScratchChar(Nerd N, char c)
@@ -1451,12 +1441,12 @@ static NeBool AddScratchChar(Nerd N, char c)
 
 static const char* GetScratch(Nerd N)
 {
-    return (const char*)BufferGet(N->mScratch, 0, 0);
+    return (const char*)NeBufferGet(N->mScratch, 0, 0);
 }
 
 static NeInt GetScratchLength(Nerd N)
 {
-    return BufferLength(N->mScratch);
+    return NeBufferLength(N->mScratch);
 }
 
 //----------------------------------------------------------------------------------------------------{POOL}
@@ -3148,7 +3138,7 @@ NeValue NeCreateClosure(Nerd N, NeValue args, NeValue body, NeValue environment)
 void DestroyBlockElement(Nerd N, void* blockObject)
 {
     NeBlockRef block = (NeBlockRef)blockObject;
-    DestroyBuffer(&block->mBlock);
+    NeDestroyBuffer(&block->mBlock);
 }
 
 //----------------------------------------------------------------------------------------------------{LEX}
@@ -5454,7 +5444,7 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
                 NeInt index = NE_EXTENDED_VALUE(func);
                 NeNativeFunc* func;
 
-                func = BufferGet(G(mNativeFuncBuffer), index * sizeof(NeNativeFunc), sizeof(NeNativeFunc));
+                func = NeBufferGet(G(mNativeFuncBuffer), index * sizeof(NeNativeFunc), sizeof(NeNativeFunc));
                 return (*func)(N, args, NE_BOX(environment, NE_PT_TABLE), result);
             }
 
@@ -5660,7 +5650,7 @@ void NeDebugReset(Nerd N)
 
 NeBool NeRegisterNative(Nerd N, const char* nativeName, NeValue environment, NeNativeFunc func)
 {
-    NeInt index = BufferLength(G(mNativeFuncBuffer)) / sizeof(NeNativeFunc);
+    NeInt index = NeBufferLength(G(mNativeFuncBuffer)) / sizeof(NeNativeFunc);
     NeValue sym;
     NeTableRef env;
     
@@ -5674,7 +5664,7 @@ NeBool NeRegisterNative(Nerd N, const char* nativeName, NeValue environment, NeN
     if (!sym) return NE_NO;
 
     // Store the function pointer in our buffer
-    if (!BufferAdd(&G(mNativeFuncBuffer), &func, sizeof(NeNativeFunc))) return NE_NO;
+    if (!NeBufferAdd(&G(mNativeFuncBuffer), &func, sizeof(NeNativeFunc))) return NE_NO;
 
     // Assign the compiler function value to the symbol in the environment
     env = NE_CAST(environment ? environment : G(mCoreEnv), NeTable);

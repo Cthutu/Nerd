@@ -158,6 +158,7 @@ typedef enum _NeType
     NeType_String,
     NeType_Keyword,
     NeType_Block,
+    NeType_Object,
     NeType_Number,
 
     // Extended
@@ -184,6 +185,7 @@ NeType;
 #define NE_PT_STRING        10
 #define NE_PT_KEYWORD       11
 #define NE_PT_BLOCK         12
+#define NE_PT_OBJECT        13
 #define NE_PT_NUMBER        14
 #define NE_PT_EXTENDED      15
 
@@ -220,6 +222,7 @@ NeType;
 #define NE_IS_STRING(v)                 NE_IS_PRIMARY_TYPE((v), NE_PT_STRING)
 #define NE_IS_KEYWORD(v)                NE_IS_PRIMARY_TYPE((v), NE_PT_KEYWORD)
 #define NE_IS_BLOCK(v)                  NE_IS_PRIMARY_TYPE((v), NE_PT_BLOCK)
+#define NE_IS_OBJECT(v)                 NE_IS_PRIMARY_TYPE((v), NE_PT_OBJECT)
 #define NE_IS_NUMBER(v)                 (NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) || NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTINT) || \
                                          NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTFLOAT) || NE_IS_EXTENDED_TYPE((v), NE_XT_SHORTRATIO))
 #define NE_IS_INTEGER(v)                ((NE_IS_PRIMARY_TYPE((v), NE_PT_NUMBER) && (NE_CAST((v), NeNumber)->mNumType == NeNumberType_Integer)) || \
@@ -333,6 +336,57 @@ void _NeFree(Nerd N, void* address, NeInt oldSize, NeMemoryType memoryType, cons
 #define NE_ALLOC(pointerType, N, size, type) (pointerType *)_NeAlloc((N), (size), (type), __FILE__, __LINE__)
 #define NE_REALLOC(pointerType, N, address, oldSize, newSize, type) (pointerType *)_NeRealloc((N), (address), (oldSize), (newSize), (type), __FILE__, __LINE__)
 #define NE_FREE(N, address, oldSize, type) _NeFree((N), (address), (oldSize), (type), __FILE__, __LINE__)
+
+//----------------------------------------------------------------------------------------------------
+// Buffer management
+// A NeBuffer is an expandable buffer that can expand its size.  This is required a lot for building
+// temporary buffers and for generation of byte-code, for example.
+//
+// NOTE: Some function have the NeBufferRef* type.  This means that the memory where the buffer
+// is stored could change when the function exists.  So a pointer to a l-value is required.
+//----------------------------------------------------------------------------------------------------
+
+typedef struct _NeBuffer NeBuffer, *NeBufferRef;
+
+// Create a new expandable buffer.
+NeBufferRef NeCreateBuffer(Nerd N, NeInt startSize);
+
+// Destroy a buffer.
+void NeDestroyBuffer(NeBufferRef buffer);
+
+// Write to the buffer at it's cursor.
+NeBool NeBufferAddFormat(NeBufferRef* buffer, const char* format, ...);
+NeBool NeBufferAddFormatArgs(NeBufferRef* buffer, const char* format, va_list args);
+
+// Allocate some space on the buffer and return the address.  It will be 16-bytes aligned.
+NeBool NeBufferAlloc(NeBufferRef* buffer, NeInt size, NE_OUT void** address);
+
+// Add a memory block to our buffer.
+void* NeBufferAdd(NeBufferRef* buffer, const void* memBlock, NeInt size);
+
+// Set a block of memory within the buffer at a position from the beginning of the non-committed data.
+void NeBufferSet(NeBufferRef buffer, NeInt position, const void* memBlock, NeInt size);
+
+// Get a block of memory within a buffer according to position from the beginning of the non-committed 
+// data.
+void* NeBufferGet(NeBufferRef buffer, NeInt position, NeInt size);
+
+// Reallocate the buffer memory to be the smallest it can be to conserve memory.
+void NeBufferShrink(NeBufferRef* buffer);
+
+// Return the length of the buffer written so far.
+NeInt NeBufferLength(NeBufferRef buffer);
+
+// This will store the data written to the buffer away for later editing.  It will only save the data
+// written since the last commit.  Use RestoreBuffer() to get it back.  You can nest the calls as long
+// as you match each NeBufferSave with each NeBufferRestore.
+NeBool NeBufferSave(NeBufferRef* buffer);
+
+// Restore previously saved contents and overwrite any uncommited data.
+void NeBufferRestore(NeBufferRef buffer);
+
+// Commit the data that's been already written to.
+void NeBufferCommit(NeBufferRef buffer);
 
 //----------------------------------------------------------------------------------------------------
 // Output
@@ -518,6 +572,53 @@ NeValue NeDivideNumbers(Nerd N, NeValue a, NeValue b);
 // Create a closure with the given arguments, body and environment.
 //
 NeValue NeCreateClosure(Nerd N, NeValue args, NeValue body, NeValue environment);
+
+//----------------------------------------------------------------------------------------------------
+// Object API
+//----------------------------------------------------------------------------------------------------
+
+typedef struct _NeClass NeClass;
+typedef NeClass* NeClassRef;
+
+typedef struct _NeObject
+{
+    NeClassRef          mClass;
+    struct _NeObject*   mNext;
+    NeBits              mMarked : 1;
+}
+*NeObject, NeObjectHeader;
+
+typedef NeObject        (*NeClassCreateFunc)    (Nerd N, va_list args);
+typedef const char*     (*NeClassNameFunc)      ();
+typedef void            (*NeClassDeleteFunc)    (Nerd N, NeObject object);
+typedef void            (*NeClassTraceFunc)     (NeObject object, NeInt colour);
+typedef void            (*NeClassStringFunc)    (Nerd N, NeObject object, int printMode, 
+                                                 NeBufferRef buffer);
+typedef NeBool          (*NeClassApplyFunc)     (Nerd N, NeObject object, NeValue args, NeValue env,
+                                                 NE_OUT NeValueRef result);
+
+struct _NeClass
+{
+    NeClassCreateFunc   mCreateFunc;            // Function that creates an instance
+    NeClassNameFunc     mNameFunc;              // The class name
+    NeClassDeleteFunc   mDeleteFunc;            // 0 = do nothing when object is deleted.
+    NeClassTraceFunc    mTraceFunc;             // 0 = just mark the object.
+    NeClassStringFunc   mStringFunc;            // 0 = "<class-name:address>"
+    NeClassApplyFunc    mApplyFunc;             // 0 = invalid procedure.
+};
+
+// Create an instance of an object.  Returns 0 if creation fails.  Create function must call
+// NeError in this case.
+NeValue NeCreateObject(Nerd N, NeClassRef cl);
+
+// Return the name of the object
+const char* NeObjectName(NeObject object);
+
+// Apply some arguments to an object
+NeBool NeApplyObject(Nerd N, NeObject object, NeValue args, NeValue env, NE_OUT NeValueRef result);
+
+// Return true if object is of a type class
+NeBool NeIsObjectOfClass(NeObject object, NeClassRef cl);
     
 //----------------------------------------------------------------------------------------------------
 // Reading
