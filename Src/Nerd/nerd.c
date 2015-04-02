@@ -23,6 +23,7 @@
 //  MEMORY          Memory management
 //  NATIVE          Native function management
 //  NUMBER          Number management
+//  OBJECT          Object management
 //  OUTPUT          Output
 //  POOL            Pool buffers
 //  READ            Reading
@@ -250,6 +251,9 @@ typedef struct _NeGlobalSession
 
     // Symbols
     NeValue                 mSymbolTable;       // Table used for fast-look up of symbols.
+
+    // Objects
+    NeObject                mFirstObject;       // Reference to first object in the chain.
 
     // Environments
     NeValue                 mCoreEnv;           // The base environment that contains all the natives and compiler functions.
@@ -942,6 +946,7 @@ static void InitTable(Nerd N, NeTableRef table, NeTableRef parent);
 static void DestroyTableElement(Nerd N, void* tableObject);
 static void DestroyBlockElement(Nerd N, void* blockObject);
 static NeBool RegisterCoreNatives(Nerd N);
+static void DeleteObject(Nerd N, NeObject object);
 
 const char* gNeOpenError = 0;
 
@@ -1050,6 +1055,17 @@ void NeClose(Nerd N)
         // still being around.
         if (G)
         {
+            NeObject object;
+
+            // Destroy all the objects
+            object = G->mFirstObject;
+            while (object)
+            {
+                NeObject nextObject = object->mNext;
+                DeleteObject(N, object);
+                object = nextObject;
+            }
+
             // Destroy the pools
             DestroyPool(&G(mCellsPool));
             DestroyPool(&G(mTablesPool));
@@ -1641,6 +1657,7 @@ static void PoolRecycle(NePoolRef pool, void* elem)
 //----------------------------------------------------------------------------------------------------
 
 static void MarkTable(Nerd N, NeTableRef table, NeBool markKeys);
+static void TraceObject(Nerd N, NeObject object);
 
 // Mark a value has being used and therefore not available for garbage collection
 //
@@ -1710,6 +1727,15 @@ static void MarkValue(Nerd N, NeValue v)
             }
             break;
 
+        case NE_PT_OBJECT:
+            {
+                NeObject object = NE_CAST(v, NeObjectHeader);
+                if (object->mMarked == G(mMarkColour)) return;
+                object->mMarked = G(mMarkColour);
+                TraceObject(N, object);
+            }
+            break;
+
         default:;
         }
     }
@@ -1745,6 +1771,8 @@ static void GcTraceBlockPool(Nerd N, void* object)
 //
 void NeGarbageCollect(Nerd N)
 {
+    NeObject object, lastObject = 0;
+
     // Step 0 - Change the next mark colour
     G(mMarkColour) = !G(mMarkColour);
 
@@ -1803,6 +1831,23 @@ void NeGarbageCollect(Nerd N)
     PoolCollect(&G(mCellsPool), &GcTraceCellPool);
     PoolCollect(&G(mTablesPool), &GcTraceTablePool);
     PoolCollect(&G(mNumbersPool), &GcTraceNumberPool);
+
+    // Step 3 - Iterate through all the objects and delete them if they are not marked.
+    object = G(mFirstObject);
+    while (object)
+    {
+        if (object->mMarked != G(mMarkColour))
+        {
+            // This object is unused and needs to be deleted
+            if (lastObject) lastObject->mNext = object->mNext; else G(mFirstObject) = object->mNext;
+            DeleteObject(N, object);
+        }
+        else
+        {
+            lastObject = object;
+        }
+        object = lastObject ? lastObject->mNext : G(mFirstObject);
+    }
 
 #if NE_DEBUG_GC == 2
     NeOut(N, "-------------------------------------------------------------------------------\nAFTER GC:\n");
@@ -3129,7 +3174,7 @@ NeValue NeCreateClosure(Nerd N, NeValue args, NeValue body, NeValue environment)
     return NE_BOX(funcCell, NE_PT_FUNCTION);
 }
 
-//----------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------{BLOCK}
 //----------------------------------------------------------------------------------------------------
 // B L O C K   M A N A G E M E N T
 //----------------------------------------------------------------------------------------------------
@@ -3139,6 +3184,116 @@ void DestroyBlockElement(Nerd N, void* blockObject)
 {
     NeBlockRef block = (NeBlockRef)blockObject;
     NeDestroyBuffer(&block->mBlock);
+}
+
+//----------------------------------------------------------------------------------------------------{OBJECT}
+//----------------------------------------------------------------------------------------------------
+// O B J E C T   M A N A G E M E N T
+//----------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------
+
+NeValue NeCreateObject(Nerd N, NeClassRef cl, ...)
+{
+    NeObject newObject = 0;
+    va_list args;
+    va_start(args, cl);
+
+    // Construct the object
+    newObject = NE_ALLOC(NeObjectHeader, N, cl->mSize + sizeof(NeObjectHeader), NeMemoryType_Object);
+    if (cl->mCreateFunc)
+    {
+        NeBool success = cl->mCreateFunc(N, newObject + 1, args);
+        va_end(args);
+    }
+    else
+    {
+        va_end(args);
+        ClearMemory(newObject + 1, cl->mSize);
+    }
+
+    // Initialise the header
+    if (newObject)
+    {
+        newObject->mNext = G(mFirstObject);
+        G(mFirstObject) = newObject;
+        newObject->mClass = cl;
+
+        return NE_BOX(newObject, NE_PT_OBJECT);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+const char* NeObjectName(NeObject object)
+{
+    if (object && object->mClass->mNameFunc)
+    {
+        return object->mClass->mNameFunc();
+    }
+    else
+    {
+        return "unknown";
+    }
+}
+
+static void DeleteObject(Nerd N, NeObject object)
+{
+    if (object->mClass->mDeleteFunc)
+    {
+        object->mClass->mDeleteFunc(N, object);
+    }
+    NE_FREE(N, object, object->mClass->mSize, NeMemoryType_Object);
+}
+
+static void TraceObject(Nerd N, NeObject object)
+{
+    if (object->mClass->mTraceFunc)
+    {
+        object->mClass->mTraceFunc(object, G(mMarkColour));
+    }
+}
+
+NeBool NeApplyObject(Nerd N, NeObject object, NeValue args, NeValue env, NE_OUT NeValueRef result)
+{
+    if (object && object->mClass->mApplyFunc)
+    {
+        return object->mClass->mApplyFunc(N, object, args, env, result);
+    }
+    else
+    {
+        return NeError(N, "Object cannot be used as a functor.");
+    }
+}
+
+NeBool NeIsObjectOfClass(NeObject object, NeClassRef cl)
+{
+    return object->mClass == cl ? NE_YES : NE_NO;
+}
+
+NeBool NeCheckObjectType(Nerd N, NeValue v, NeClassRef cl)
+{
+    NeObject obj = NE_CAST(v, NeObjectHeader);
+
+    if (!NE_IS_OBJECT(v))
+    {
+        return NeError(N, "Expected object type but found '%s'.", NeGetTypeName(NeGetType(v)));
+    }
+    else
+    {
+        if (!NeIsObjectOfClass(obj, cl))
+        {
+            const char* expectedName = "unknown";
+            if (cl->mNameFunc)
+            {
+                expectedName = cl->mNameFunc();
+            }
+            return NeError(N, "Expected object of type '%s', but found '%s'.", expectedName, NeObjectName(obj));
+        }
+    }
+
+    return NE_YES;
 }
 
 //----------------------------------------------------------------------------------------------------{LEX}
@@ -4183,16 +4338,29 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
         // Purposefully flow into next case statement...
 
     case NE_PT_SYMBOL:
-    {
-        NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
-        return FormatScratch(N, "%s", strInfo->mString);
-    }
+        {
+            NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
+            return FormatScratch(N, "%s", strInfo->mString);
+        }
 
     case NE_PT_KEYWORD:
-    {
-        NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
-        return FormatScratch(N, ":%s", strInfo->mString);
-    }
+        {
+            NeStringInfoRef strInfo = NE_CAST(v, NeStringInfo);
+            return FormatScratch(N, ":%s", strInfo->mString);
+        }
+
+    case NE_PT_OBJECT:
+        {
+            NeObject object = NE_CAST(v, NeObjectHeader);
+            if (object->mClass->mStringFunc)
+            {
+                return object->mClass->mStringFunc(N, object, convertMode, &N->mScratch);
+            }
+            else
+            {
+                return FormatScratch(N, "<%s:%p>", NeObjectName(object), object);
+            }
+        }
 
     case NE_PT_NUMBER:
         return ConvertNumber(N, v);
@@ -5434,6 +5602,9 @@ static NeBool Apply(Nerd N, NeValue func, NeValue args, NeTableRef environment, 
             return NE_YES;
         }
         break;
+
+    case NE_PT_OBJECT:
+        return NeApplyObject(N, (NeObject)NE_CAST(func, void), args, NE_BOX(environment, NE_PT_TABLE), result);
 
     case NE_PT_EXTENDED:
         switch (NE_EXTENDED_TYPEOF(func))

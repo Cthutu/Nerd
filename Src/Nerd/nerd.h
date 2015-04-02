@@ -80,6 +80,7 @@ typedef enum _NeMemoryType
     NeMemoryType_TableNodes,
     NeMemoryType_Buffer,
     NeMemoryType_PoolHeap,
+    NeMemoryType_Object,
 
     NeMemoryType_COUNT
 }

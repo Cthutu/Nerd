@@ -588,28 +588,29 @@ typedef struct _NeObject
 }
 *NeObject, NeObjectHeader;
 
-typedef NeObject        (*NeClassCreateFunc)    (Nerd N, va_list args);
+typedef NeBool          (*NeClassCreateFunc)    (Nerd N, void* newObject, va_list args);
 typedef const char*     (*NeClassNameFunc)      ();
 typedef void            (*NeClassDeleteFunc)    (Nerd N, NeObject object);
 typedef void            (*NeClassTraceFunc)     (NeObject object, NeInt colour);
-typedef void            (*NeClassStringFunc)    (Nerd N, NeObject object, int printMode, 
-                                                 NeBufferRef buffer);
+typedef NeBool          (*NeClassStringFunc)    (Nerd N, NeObject object, int printMode, 
+                                                 NeBufferRef* buffer);
 typedef NeBool          (*NeClassApplyFunc)     (Nerd N, NeObject object, NeValue args, NeValue env,
                                                  NE_OUT NeValueRef result);
 
 struct _NeClass
 {
-    NeClassCreateFunc   mCreateFunc;            // Function that creates an instance
+    NeClassCreateFunc   mCreateFunc;            // 0 = Uses class size and set everything to 0.
     NeClassNameFunc     mNameFunc;              // The class name
     NeClassDeleteFunc   mDeleteFunc;            // 0 = do nothing when object is deleted.
     NeClassTraceFunc    mTraceFunc;             // 0 = just mark the object.
     NeClassStringFunc   mStringFunc;            // 0 = "<class-name:address>"
     NeClassApplyFunc    mApplyFunc;             // 0 = invalid procedure.
+    NeInt               mSize;                  // Size of an instance.
 };
 
 // Create an instance of an object.  Returns 0 if creation fails.  Create function must call
 // NeError in this case.
-NeValue NeCreateObject(Nerd N, NeClassRef cl);
+NeValue NeCreateObject(Nerd N, NeClassRef cl, ...);
 
 // Return the name of the object
 const char* NeObjectName(NeObject object);
@@ -619,6 +620,9 @@ NeBool NeApplyObject(Nerd N, NeObject object, NeValue args, NeValue env, NE_OUT 
 
 // Return true if object is of a type class
 NeBool NeIsObjectOfClass(NeObject object, NeClassRef cl);
+
+// Check that a value is an object of a certain type and produce errors if not.
+NeBool NeCheckObjectType(Nerd N, NeValue v, NeClassRef cl);
     
 //----------------------------------------------------------------------------------------------------
 // Reading
