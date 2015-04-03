@@ -3203,6 +3203,10 @@ NeValue NeCreateObject(Nerd N, NeClassRef cl, ...)
     if (cl->mCreateFunc)
     {
         NeBool success = cl->mCreateFunc(N, newObject + 1, args);
+        if (!success)
+        {
+            return 0;
+        }
         va_end(args);
     }
     else
