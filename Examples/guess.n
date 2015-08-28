@@ -1,15 +1,9 @@
 lower: 1
 upper: 100
 
-min: (a b) ->
-	(cond
-		(< a b): a
-		else: b)
+min: (a b) -> (if (< a b) a b)
 
-max: (a b) ->
-	(cond
-		(< a b): b
-		else: a)
+max: (a b) -> (if (< a b) b a)
 
 guess: () ->
 	(int (/ (+ upper lower) 2))
