@@ -6849,6 +6849,50 @@ static NeBool N_Map(Nerd N, NeValue args, NeValue env, NeValueRef result)
 }
 
 //----------------------------------------------------------------------------------------------------
+// Logic
+//----------------------------------------------------------------------------------------------------
+
+static NeBool N_Or(Nerd N, NeValue args, NeValue env, NeValueRef result)
+{
+    while (args)
+    {
+        NeValue argResult;
+        
+        NE_EVAL(N, NE_HEAD(args), env, argResult);
+        if (NeIsTrue(argResult))
+        {
+            *result = argResult;
+            return NE_YES;
+        }
+        
+        args = NE_TAIL(args);
+    }
+    
+    *result = NE_BOOLEAN_VALUE(NE_NO);
+    return NE_YES;
+}
+
+static NeBool N_And(Nerd N, NeValue args, NeValue env, NeValueRef result)
+{
+    NeValue argResult;
+    
+    while (args)
+    {
+        NE_EVAL(N, NE_HEAD(args), env, argResult);
+        if (!NeIsTrue(argResult))
+        {
+            *result = NE_BOOLEAN_VALUE(NE_NO);
+            return NE_YES;
+        }
+        
+        args = NE_TAIL(args);
+    }
+    
+    *result = argResult;
+    return NE_YES;
+}
+
+//----------------------------------------------------------------------------------------------------
 // Standard natives registration
 //----------------------------------------------------------------------------------------------------
 
@@ -6899,6 +6943,10 @@ NeBool RegisterCoreNatives(Nerd N)
         NE_NATIVE("apply", N_Apply)             // (apply list func)
         NE_NATIVE("fold", N_Fold)               // (reduce start list func)
         NE_NATIVE("map", N_Map)                 // (map args... fn)
+        
+        // Logic
+        NE_NATIVE("or", N_Or)                   // (or ...)
+        NE_NATIVE("and", N_And)                 // (and ...)
 
         // The end!
         NE_END_NATIVES

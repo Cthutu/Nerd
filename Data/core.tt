@@ -364,6 +364,7 @@ Table.Assign.SubTable.New		x:[a:42 b:[]] (x :b :test): 100 (x :b :test)				100
 Table.Dot.Lookup.Simple			x:[a:42 b:36] x.a											42
 Table.Dot.Function				x:[foo:()->"hello"] (x.foo)									"hello"
 Table.Dot.Lookup.Deep			x:[a:42 b:[c:66 d:95]] x.b.c								66
+Table.Dot.Assign				x:[a:42 b:[c:56 d:72]] x.b.d: 100 x.b.d						100
 
 #
 # Set!
@@ -373,3 +374,16 @@ Set!.Simple						(set! x:42) x												42
 Set!.AlreadyDefined				x:23 (set! x:42) x											42
 Set!.Table						x:[a:42] (set! (x :a):100) x								[a: 100]
 Set!.Multiple					x:1 y:2 (set! x:5 y:6) (+ x y)								11
+
+#
+# Logic
+#
+
+Or.TruthTable					`(,(or no no) ,(or yes no) ,(or no yes) ,(or yes yes))		(no yes yes yes)
+Or.YesValue						(or 42 10 69)												42
+Or.YesValue2					(or no no 69)												69
+And.TruthTable					`(,(and no no) ,(and yes no) ,(and no yes) ,(and yes yes))	(no no no yes)
+And.NoValue						(and no 45)													no
+And.YesValue					(and yes 54)												54
+
+

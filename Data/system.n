@@ -15,3 +15,5 @@ unless: (?cond ?do) => `(cond (not ,?cond): ,?do)
 ;;; Basic predicates
 even?: (x) -> (== 0 (% x 2))
 odd?: (x) -> (not (== 0 (% x 2)))
+zero?: (x) -> (== 0 x)
+
