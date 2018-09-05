@@ -386,4 +386,8 @@ And.TruthTable					`(,(and no no) ,(and yes no) ,(and no yes) ,(and yes yes))	(n
 And.NoValue						(and no 45)													no
 And.YesValue					(and yes 54)												54
 
+#
+# Strings
+#
 
+Strings.Equal					a: "Hello" b: "Hello" (== a b)								yes

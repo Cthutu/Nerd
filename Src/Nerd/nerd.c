@@ -3443,6 +3443,7 @@ typedef struct _NeLex
     // Last token information
     const char*         mStartToken;    // Points to the first character of the token just read
     const char*         mEndToken;      // Points past the last character of the token just read
+    NeValue             mString;
     NeUInt32            mHash;          // The hash of the last token
     NeNumber            mNumber;        // If the token is a number, it is stored here
     NeChar              mCharacter;     // Parsed character
@@ -3950,6 +3951,7 @@ static NeToken NextToken(NeLexRef L)
 
         // TODO: Copy scratch into a string
         L->mEndToken = L->mCursor - 1;
+        L->mString = NeCreateString(L->mMachine, GetScratch(L->mMachine), GetScratchLength(L->mMachine));
         RestoreScratch(L->mMachine);
         NE_LEX_RETURN(NeToken_String);
     }
@@ -4649,7 +4651,7 @@ static NeBool InterpretToken(Nerd N, NeLexRef lex, NeToken token, NeValue env, N
     switch (token)
     {
     case NeToken_String:
-        *result = CreateString(N, start, size, lex->mHash);
+        *result = lex->mString;
         if (!*result) return NE_NO;
         break;
 

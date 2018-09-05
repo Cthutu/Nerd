@@ -17,7 +17,11 @@
 #endif
 
 // Enables the unit testing if set to 1
+#ifdef _DEBUG
 #define NE_TEST			1
+#else
+#define NE_TEST         0
+#endif
 #define NE_BREAK_ALLOC  0
 
 #if NE_TEST
@@ -71,7 +75,7 @@ static NeBool RunFile(Nerd N, const char* fileName)
     }
     else
     {
-        NeOut(N, "Unable to open %s.", fileName);
+        NeOut(N, "Unable to open %s.\n", fileName);
     }
 
     NeGarbageCollect(N);
