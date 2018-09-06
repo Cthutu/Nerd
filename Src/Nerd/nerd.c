@@ -5808,6 +5808,12 @@ NeBool NeRun(Nerd N, const char* source, const char* str, NeInt size, NE_OUT NeV
     return success;
 }
 
+NeBool NeQuickRun(Nerd N, const char* str, NE_OUT NeValueRef result)
+{
+    NeInt len = StrLen(str);
+    return NeRun(N, "<internal>", str, len, result);
+}
+
 //----------------------------------------------------------------------------------------------------{DEBUG}
 //----------------------------------------------------------------------------------------------------
 // D E B U G G I N G

@@ -221,6 +221,10 @@ NeString NeGetError(Nerd N);
 //
 NeBool NeRun(Nerd N, const char* source, const char* str, NeInt size, NE_OUT NeValueRef result);
 
+// This function will run a string that doesn't originate from a file.  It's a convenient wrapper
+// around NeRun.
+NeBool NeQuickRun(Nerd N, const char* str, NE_OUT NeValueRef result);
+
 //----------------------------------------------------------------------------------------------------
 // Debugging
 //----------------------------------------------------------------------------------------------------
