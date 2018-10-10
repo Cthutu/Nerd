@@ -1252,11 +1252,11 @@ NeBool NeBufferAddFormatArgs(NeBufferRef* buffer, const char* format, va_list ar
 
     while (formatResult == -1)
     {
-        NeInt spaceLeft = BufferSpace(*buffer);
+        NeInt spaceLeft = BufferSpace(*buffer) - 1;
 
-        if (spaceLeft)
+        if (spaceLeft > 0)
         {
-            formatResult = vsnprintf(&(*buffer)->mData[(*buffer)->mCursor], (size_t)spaceLeft, format, args);
+            formatResult = _vsnprintf(&(*buffer)->mData[(*buffer)->mCursor], (size_t)spaceLeft, format, args);
         }
 
         if (-1 == formatResult)
@@ -1732,7 +1732,7 @@ static void MarkValue(Nerd N, NeValue v)
                 NeObject object = NE_CAST(v, NeObjectHeader);
                 if (object->mMarked == G(mMarkColour)) return;
                 object->mMarked = G(mMarkColour);
-                TraceObject(N, object);
+                TraceObject(N, object + 1);
             }
             break;
 
@@ -3246,7 +3246,7 @@ static void DeleteObject(Nerd N, NeObject object)
 {
     if (object->mClass->mDeleteFunc)
     {
-        object->mClass->mDeleteFunc(N, object);
+        object->mClass->mDeleteFunc(N, object + 1);
     }
     NE_FREE(N, object, object->mClass->mSize, NeMemoryType_Object);
 }
@@ -4360,7 +4360,7 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
             NeObject object = NE_CAST(v, NeObjectHeader);
             if (object->mClass->mStringFunc)
             {
-                return object->mClass->mStringFunc(N, object, convertMode, &N->mScratch);
+                return object->mClass->mStringFunc(N, object + 1, convertMode, &N->mScratch);
             }
             else
             {
@@ -4855,7 +4855,6 @@ static NeBool TransformElement(Nerd N, NeValue input, NE_OUT NeValueRef result)
     if (NE_IS_CELL(input) ||
         NE_IS_SEQUENCE(input))
     {
-        input = NE_BOX(input, NE_PT_CELL);
         success = Transform(N, result);
     }
     else if (NE_IS_READER_UNARY_OP(input) || NE_IS_READER_LBINARY_OP(input))
@@ -5067,6 +5066,8 @@ static NeBool Transform(Nerd N, NE_IN_OUT NeValue* codeList)
     NeValue scan = *codeList;
     NeValue last = 0;
     NeValue earliestBinary = 0;
+
+    scan = NE_BOX(scan, NE_PT_CELL);
 
 #if NE_DEBUG_TRANSFORM
     NeDebugOutValue(N, "TRANSFORM", *codeList);

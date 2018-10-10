@@ -590,9 +590,9 @@ typedef struct _NeObject
 
 typedef NeBool          (*NeClassCreateFunc)    (Nerd N, void* newObject, va_list args);
 typedef const char*     (*NeClassNameFunc)      ();
-typedef void            (*NeClassDeleteFunc)    (Nerd N, NeObject object);
-typedef void            (*NeClassTraceFunc)     (NeObject object, NeInt colour);
-typedef NeBool          (*NeClassStringFunc)    (Nerd N, NeObject object, int printMode, 
+typedef void            (*NeClassDeleteFunc)    (Nerd N, void* object);
+typedef void            (*NeClassTraceFunc)     (void* object, NeInt colour);
+typedef NeBool          (*NeClassStringFunc)    (Nerd N, const void* object, int printMode, 
                                                  NeBufferRef* buffer);
 typedef NeBool          (*NeClassApplyFunc)     (Nerd N, NeObject object, NeValue args, NeValue env,
                                                  NE_OUT NeValueRef result);
@@ -602,7 +602,7 @@ struct _NeClass
     NeClassCreateFunc   mCreateFunc;            // 0 = Uses class size and set everything to 0.
     NeClassNameFunc     mNameFunc;              // The class name
     NeClassDeleteFunc   mDeleteFunc;            // 0 = do nothing when object is deleted.
-    NeClassTraceFunc    mTraceFunc;             // 0 = just mark the object.
+    NeClassTraceFunc    mTraceFunc;             // 0 = no sub-objects to mark.
     NeClassStringFunc   mStringFunc;            // 0 = "<class-name:address>"
     NeClassApplyFunc    mApplyFunc;             // 0 = invalid procedure.
     NeInt               mSize;                  // Size of an instance.
