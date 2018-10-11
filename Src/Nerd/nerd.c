@@ -4214,7 +4214,7 @@ NeBool ConvertToString(Nerd N, NeValue v, int convertMode)
         {
             char open, close;
 
-            if (0 == v)
+            if (0 == v || NE_PT_SEQUENCE == v)
             {
                 if (convertMode != NE_CONVERT_MODE_NORMAL)
                 {
@@ -4939,6 +4939,7 @@ static NeBool TransformBinary(Nerd N, NeValue op, NeValue param1, NeValue param2
                 if (*result)
                 {
                     NE_2ND(*result) = param1;
+                    // (...) -> { a b c }  ==> (fn (...) a b c)
                     NE_TAIL(NE_TAIL(*result)) = NE_BOX(param2, NE_PT_CELL);
                 }
                 else
@@ -5903,29 +5904,37 @@ static NeBool N_Fn(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
     NeValue func;
 
     // Get body of function
-    NE_NEED_NUM_ARGS(N, args, 2);
+    NE_NEED_NUM_ARGS(N, args, 1);
     body = NE_TAIL(args);
-
-    // Get arguments of function and check them
-    args = NE_HEAD(args);
-    NE_CHECK_ARG_TYPE(N, args, 1, NeType_List);
-
-    for (scan = args; scan; scan = NE_TAIL(scan), ++index)
+    if (body)
     {
-        NeValue arg = NE_HEAD(scan);
-        if (!NE_IS_SYMBOL(arg) && !NE_IS_KEYWORD(arg))
+        // Get arguments of function and check them
+        args = NE_HEAD(args);
+        NE_CHECK_ARG_TYPE(N, args, 1, NeType_List);
+
+        for (scan = args; scan; scan = NE_TAIL(scan), ++index)
         {
-            return NeError(N, "Arguments declaration in lambda is invalid.  Argument %u must be a symbol.", index);
+            NeValue arg = NE_HEAD(scan);
+            if (!NE_IS_SYMBOL(arg) && !NE_IS_KEYWORD(arg))
+            {
+                return NeError(N, "Arguments declaration in lambda is invalid.  Argument %u must be a symbol.", index);
+            }
         }
-    }
 
-    func = NeCreateClosure(N, args, body, env);
-    if (func)
+        func = NeCreateClosure(N, args, body, env);
+        if (func)
+        {
+            *result = func;
+        }
+
+        return func ? NE_YES : NE_NO;
+    }
+    else
     {
-        *result = func;
+        // Empty function (fn (...)) should always return nil.
+        *result = 0;
+        return NE_YES;
     }
-
-    return func ? NE_YES : NE_NO;
 }
 
 static NeBool N_Macro(Nerd N, NeValue args, NeValue env, NE_OUT NeValueRef result)
