@@ -1732,7 +1732,7 @@ static void MarkValue(Nerd N, NeValue v)
                 NeObject object = NE_CAST(v, NeObjectHeader);
                 if (object->mMarked == G(mMarkColour)) return;
                 object->mMarked = G(mMarkColour);
-                TraceObject(N, object + 1);
+                TraceObject(N, object);
             }
             break;
 
@@ -3248,14 +3248,14 @@ static void DeleteObject(Nerd N, NeObject object)
     {
         object->mClass->mDeleteFunc(N, object + 1);
     }
-    NE_FREE(N, object, object->mClass->mSize, NeMemoryType_Object);
+    NE_FREE(N, object, object->mClass->mSize + sizeof(NeObjectHeader), NeMemoryType_Object);
 }
 
 static void TraceObject(Nerd N, NeObject object)
 {
     if (object->mClass->mTraceFunc)
     {
-        object->mClass->mTraceFunc(object, G(mMarkColour));
+        object->mClass->mTraceFunc(object + 1, G(mMarkColour));
     }
 }
 
